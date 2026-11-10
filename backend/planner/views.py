@@ -1,20 +1,27 @@
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
+from django.views.decorators.http import require_GET
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
+from rest_framework.views import APIView
 
 from .serializers import TripRequestSerializer
 
 
-def health(request):
+@require_GET
+def health(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
 
 
-@api_view(["POST"])
-def plan_trip(request):
-    serializer = TripRequestSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    return Response(
-        {"status": "validated", "trip": serializer.data},
-        status=status.HTTP_200_OK,
-    )
+class PlanTripView(APIView):
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "plan"
+
+    def post(self, request: Request) -> Response:
+        serializer = TripRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"status": "validated", "trip": serializer.data},
+            status=status.HTTP_200_OK,
+        )

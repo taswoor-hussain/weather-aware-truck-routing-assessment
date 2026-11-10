@@ -16,6 +16,7 @@ Use Python 3.10+ and Node.js 20+.
 ```bash
 # Terminal 1: Django API
 cd backend
+cp .env.example .env  # Replace the local secret with a random value.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -36,6 +37,14 @@ Run frontend validation from `frontend/`:
 npm run build
 npm run lint
 npm test
+```
+
+Run backend validation from `backend/`:
+
+```bash
+source .venv/bin/activate
+python manage.py check
+python manage.py test
 ```
 
 ## Frontend structure
@@ -78,6 +87,17 @@ generation and weather analysis will be added in later stages.
 `checkpoint_interval_miles` is optional and defaults to `25`; supported values
 are `10`, `25`, and `50`. `departure_at` must include a timezone offset.
 Invalid requests return field-specific `400 Bad Request` errors.
+
+## Backend safety defaults
+
+- Production mode is the default. It requires `DJANGO_SECRET_KEY`; set
+  `DJANGO_DEBUG=true` only for local development.
+- Host allowlisting, secure cookie flags, MIME-sniffing protection, a frame
+  policy, and configurable HTTPS/HSTS settings are enabled.
+- The API accepts JSON only, limits request-body size, rejects unknown request
+  fields, and rate-limits trip planning requests.
+- The in-memory throttle cache is per process. A multi-instance deployment
+  should use a shared cache (such as Redis) before relying on global rate limits.
 
 ## Development status
 

@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import SimpleTestCase
 from django.urls import reverse
 
@@ -8,6 +9,11 @@ class HealthEndpointTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_health_endpoint_only_accepts_get(self):
+        response = self.client.post(reverse("health"))
+
+        self.assertEqual(response.status_code, 405)
 
 
 class TripRequestApiTests(SimpleTestCase):
@@ -42,6 +48,7 @@ class TripRequestApiTests(SimpleTestCase):
             ({**self.valid_payload, "load_weight_lb": 0}, "load_weight_lb"),
             ({**self.valid_payload, "checkpoint_interval_miles": 15}, "checkpoint_interval_miles"),
             ({**self.valid_payload, "departure_at": "2026-11-11T08:30:00"}, "departure_at"),
+            ({**self.valid_payload, "departure_at": "2026-99-99T08:30:00Z"}, "departure_at"),
             ({**self.valid_payload, "destination": " chicago, il "}, "destination"),
         )
 
@@ -64,3 +71,62 @@ class TripRequestApiTests(SimpleTestCase):
         self.assertIn("destination", response.json())
         self.assertIn("departure_at", response.json())
         self.assertIn("load_weight_lb", response.json())
+
+    def test_unknown_fields_are_rejected_instead_of_silently_ignored(self):
+        response = self.client.post(
+            self.url,
+            {**self.valid_payload, "load_weigth_lb": 32000},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("non_field_errors", response.json())
+        self.assertIn("load_weigth_lb", response.json()["non_field_errors"][0])
+
+    def test_only_json_requests_are_supported(self):
+        response = self.client.post(self.url, {"origin": "Chicago"})
+
+        self.assertEqual(response.status_code, 415)
+
+    def test_malformed_json_returns_a_client_error(self):
+        response = self.client.post(
+            self.url,
+            data='{"origin":',
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("detail", response.json())
+
+    def test_plan_endpoint_only_accepts_post(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 405)
+
+
+class TripRequestThrottleTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+        self.url = reverse("plan-trip")
+        self.payload = {
+            "origin": "Chicago, IL",
+            "destination": "Denver, CO",
+            "departure_at": "2026-11-11T08:30:00-06:00",
+            "load_weight_lb": 32000,
+        }
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_plan_requests_are_rate_limited(self):
+        responses = [
+            self.client.post(
+                self.url,
+                self.payload,
+                content_type="application/json",
+            )
+            for _ in range(21)
+        ]
+
+        self.assertTrue(all(response.status_code == 200 for response in responses[:20]))
+        self.assertEqual(responses[20].status_code, 429)

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 
 from django.utils.dateparse import parse_datetime
@@ -13,7 +14,10 @@ class AwareDateTimeField(serializers.DateTimeField):
     def to_internal_value(self, value):
         parsed = value if isinstance(value, datetime) else None
         if isinstance(value, str):
-            parsed = parse_datetime(value)
+            try:
+                parsed = parse_datetime(value)
+            except ValueError:
+                parsed = None
 
         if parsed is not None and is_naive(parsed):
             self.fail("timezone_required")
@@ -30,6 +34,19 @@ class TripRequestSerializer(serializers.Serializer):
         choices=(10, 25, 50),
         default=25,
     )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            unknown_fields = sorted(set(data) - set(self.fields))
+            if unknown_fields:
+                raise serializers.ValidationError(
+                    {
+                        "non_field_errors": [
+                            f"Unknown field(s): {', '.join(unknown_fields)}."
+                        ]
+                    }
+                )
+        return super().to_internal_value(data)
 
     def validate(self, attrs):
         if attrs["origin"].casefold() == attrs["destination"].casefold():
