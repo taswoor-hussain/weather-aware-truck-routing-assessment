@@ -106,5 +106,6 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "plan": "20/min",
+        "geocode": "30/min",
     },
 }

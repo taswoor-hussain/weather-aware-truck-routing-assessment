@@ -1,15 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../../shared/api/ApiError'
-import type { RouteOption, TripPlanResponse, TripRequest } from '../types'
+import type { PlaceSuggestion, RouteOption, TripPlanResponse, TripRequest } from '../types'
 import { TripForm } from './TripForm'
+import { TripResult } from './TripResult'
 
-const planTrip = vi.hoisted(() => vi.fn())
+const { planTrip, searchPlaces } = vi.hoisted(() => ({
+  planTrip: vi.fn(),
+  searchPlaces: vi.fn(),
+}))
 
 vi.mock('../api/tripApi', () => ({
   planTrip,
+  searchPlaces,
 }))
 
 vi.mock('./TripMap', () => ({
@@ -107,14 +113,43 @@ function renderForm() {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <TripForm />
+      <TripFormWithResults />
     </QueryClientProvider>,
   )
+}
+
+function TripFormWithResults() {
+  const [plan, setPlan] = useState<TripPlanResponse | null>(null)
+  return (
+    <>
+      <TripForm onPlan={setPlan} />
+      {plan && (
+        <TripResult
+          plan={plan}
+          selectedRouteId={plan.recommendation.route_id ?? plan.routes[0].id}
+          onSelectRoute={vi.fn()}
+        />
+      )}
+    </>
+  )
+}
+
+async function choosePlace(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.type(screen.getByLabelText(label), label === 'Origin' ? 'Chicago, IL' : 'Denver, CO')
+  const placeLabel = label === 'Origin' ? 'Chicago, IL' : 'Denver, CO'
+  await user.click(await screen.findByRole('option', { name: new RegExp(placeLabel) }))
 }
 
 describe('TripForm', () => {
   beforeEach(() => {
     planTrip.mockReset()
+    searchPlaces.mockReset()
+    searchPlaces.mockImplementation(async (query: string) => {
+      const place: PlaceSuggestion = query.toLowerCase().includes('denver')
+        ? { label: 'Denver, CO', latitude: 39.7392, longitude: -104.9903 }
+        : { label: 'Chicago, IL', latitude: 41.8781, longitude: -87.6298 }
+      return [place]
+    })
   })
 
   it('shows local field validation without calling the API', async () => {
@@ -133,15 +168,15 @@ describe('TripForm', () => {
     planTrip.mockImplementation(async (request: TripRequest) => makePlan(request))
     renderForm()
 
-    await user.type(screen.getByLabelText('Origin'), 'Chicago, IL')
-    await user.type(screen.getByLabelText('Destination'), 'Denver, CO')
+    await choosePlace(user, 'Origin')
+    await choosePlace(user, 'Destination')
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
     await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
     expect(await screen.findByText('Safest available route selected')).toBeInTheDocument()
-    expect(screen.getByText('Weather-ranked route options')).toBeInTheDocument()
+    expect(screen.getByText('Compare routes')).toBeInTheDocument()
     expect(screen.getByText('900 mi')).toBeInTheDocument()
     expect(screen.getAllByText('Checkpoint weather (2)')).toHaveLength(3)
     expect(planTrip.mock.calls[0][0]).toEqual(
@@ -164,7 +199,9 @@ describe('TripForm', () => {
     renderForm()
 
     await user.type(screen.getByLabelText('Origin'), 'Chicago, IL')
+    await user.click(await screen.findByRole('option', { name: /Chicago, IL/ }))
     await user.type(screen.getByLabelText('Destination'), 'Chicago, IL')
+    await user.click(await screen.findByRole('option', { name: /Chicago, IL/ }))
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
@@ -187,8 +224,8 @@ describe('TripForm', () => {
     )
     renderForm()
 
-    await user.type(screen.getByLabelText('Origin'), 'Chicago, IL')
-    await user.type(screen.getByLabelText('Destination'), 'Denver, CO')
+    await choosePlace(user, 'Origin')
+    await choosePlace(user, 'Destination')
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
@@ -224,8 +261,8 @@ describe('TripForm', () => {
     )
     renderForm()
 
-    await user.type(screen.getByLabelText('Origin'), 'Chicago, IL')
-    await user.type(screen.getByLabelText('Destination'), 'Denver, CO')
+    await choosePlace(user, 'Origin')
+    await choosePlace(user, 'Destination')
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })

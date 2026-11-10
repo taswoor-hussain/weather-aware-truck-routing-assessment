@@ -3,6 +3,7 @@ import { ApiError, toApiError } from '../../../shared/api/ApiError'
 import { apiClient } from '../../../shared/api/apiClient'
 import {
   CHECKPOINT_INTERVALS,
+  type PlaceSuggestion,
   type TripPlanResponse,
   type TripRequest,
 } from '../types'
@@ -101,6 +102,36 @@ const tripPlanResponseSchema = z.object({
     )
     .length(3),
 })
+
+const placeSuggestionsSchema = z.object({
+  places: z.array(
+    z.object({
+      label: z.string().min(1).max(120),
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    }),
+  ),
+})
+
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal,
+): Promise<PlaceSuggestion[]> {
+  try {
+    const { data } = await apiClient.get<unknown>('/places/suggest/', {
+      params: { q: query },
+      signal,
+    })
+    const result = placeSuggestionsSchema.safeParse(data)
+    if (!result.success) {
+      throw new ApiError('The server returned invalid place suggestions.')
+    }
+    return result.data.places
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw toApiError(error)
+  }
+}
 
 export async function planTrip(
   request: TripRequest,

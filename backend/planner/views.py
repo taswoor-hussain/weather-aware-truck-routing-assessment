@@ -8,7 +8,9 @@ from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .services.errors import PlanningServiceError
+from .services.geocoding import suggest_locations
 from .services.planner import plan_trip
+from .services.tomtom_client import TomTomClient
 from .serializers import TripRequestSerializer
 
 
@@ -35,3 +37,25 @@ class PlanTripView(APIView):
                 status=error.status_code,
             )
         return Response(result, status=status.HTTP_200_OK)
+
+
+class PlaceSuggestionsView(APIView):
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "geocode"
+
+    def get(self, request: Request) -> Response:
+        query = request.query_params.get("q", "").strip()
+        if len(query) < 3 or len(query) > 120 or any(ord(char) < 32 for char in query):
+            return Response(
+                {"detail": "Search text must be between 3 and 120 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            places = suggest_locations(TomTomClient(settings.TOMTOM_API_KEY), query)
+        except PlanningServiceError as error:
+            return Response(
+                {"code": error.code, "detail": error.message},
+                status=error.status_code,
+            )
+        return Response({"places": places}, status=status.HTTP_200_OK)

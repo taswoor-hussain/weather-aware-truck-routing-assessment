@@ -5,35 +5,46 @@ import type { RouteOption } from '../types'
 interface RouteOptionCardProps {
   route: RouteOption
   index: number
+  selected: boolean
+  onSelect: () => void
 }
 
-export function RouteOptionCard({ route, index }: RouteOptionCardProps) {
+export function RouteOptionCard({ route, index, selected, onSelect }: RouteOptionCardProps) {
   const isRecommended = route.is_recommended
   return (
     <article
-      className={`rounded-2xl border bg-white p-4 shadow-sm ${
-        isRecommended ? 'border-teal-300 ring-2 ring-teal-100' : 'border-slate-200'
+      className={`rounded-2xl border bg-white p-4 shadow-sm transition ${
+        selected ? 'border-teal-600 ring-2 ring-teal-100' : 'border-slate-200'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`Show route ${index + 1} on map${isRecommended ? ', recommended' : ''}`}
+        onClick={onSelect}
+        className="flex w-full items-start justify-between gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"
+      >
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-800">
-            Option {String(index + 1).padStart(2, '0')}
+            Route {String(index + 1).padStart(2, '0')}
           </p>
           <h3 className="mt-1 text-base font-bold text-slate-900">
             {route.summary.distance_miles.toLocaleString()} mi
           </h3>
         </div>
-        {isRecommended ? (
-          <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-900">
-            Recommended
-          </span>
-        ) : (
-          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-            Alternative
-          </span>
-        )}
-      </div>
+        <span className="flex items-center gap-2">
+          <span className={`size-2.5 rounded-full ${selected ? 'bg-teal-700' : 'bg-slate-300'}`} />
+          {isRecommended ? (
+            <span className="rounded-lg bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-900">
+              Safest
+            </span>
+          ) : (
+            <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+              Compare
+            </span>
+          )}
+        </span>
+      </button>
       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
         <div>
           <dt className="text-[11px] font-medium text-slate-500">Est. drive time</dt>

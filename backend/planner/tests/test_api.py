@@ -249,3 +249,65 @@ class TripRequestThrottleTests(SimpleTestCase):
 
         self.assertTrue(all(response.status_code == 200 for response in responses[:20]))
         self.assertEqual(responses[20].status_code, 429)
+
+
+class PlaceSuggestionsApiTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+        self.url = reverse("place-suggestions")
+
+    def tearDown(self):
+        cache.clear()
+
+    @override_settings(TOMTOM_API_KEY="test-key")
+    @patch("planner.views.suggest_locations")
+    def test_valid_query_returns_suggestions(self, mock_suggest_locations):
+        mock_suggest_locations.return_value = [
+            {"label": "Chicago, IL", "latitude": 41.8781, "longitude": -87.6298}
+        ]
+
+        response = self.client.get(self.url, {"q": "Chi"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "places": [
+                    {"label": "Chicago, IL", "latitude": 41.8781, "longitude": -87.6298}
+                ]
+            },
+        )
+        mock_suggest_locations.assert_called_once()
+        self.assertEqual(mock_suggest_locations.call_args.args[1], "Chi")
+
+    def test_short_query_is_rejected_without_provider_call(self):
+        response = self.client.get(self.url, {"q": "  "})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Search text must be between 3 and 120 characters.")
+
+    @override_settings(TOMTOM_API_KEY="")
+    def test_missing_provider_configuration_returns_a_safe_error(self):
+        response = self.client.get(self.url, {"q": "Chicago"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "routing_not_configured")
+
+    @override_settings(TOMTOM_API_KEY="test-key")
+    @patch("planner.views.suggest_locations")
+    def test_provider_errors_return_a_safe_structured_response(self, mock_suggest_locations):
+        mock_suggest_locations.side_effect = RoutingServiceError(
+            "The routing provider timed out. Please try again.",
+            code="routing_timeout",
+            status_code=503,
+        )
+
+        response = self.client.get(self.url, {"q": "Chicago"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "routing_timeout")
+
+    def test_suggestion_endpoint_only_accepts_get(self):
+        response = self.client.post(self.url, {"q": "Chicago"})
+
+        self.assertEqual(response.status_code, 405)

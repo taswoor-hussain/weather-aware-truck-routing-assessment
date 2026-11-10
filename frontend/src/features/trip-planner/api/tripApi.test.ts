@@ -1,12 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../../shared/api/apiClient'
-import { planTrip } from './tripApi'
+import { planTrip, searchPlaces } from './tripApi'
 
 vi.mock('../../../shared/api/apiClient', () => ({
   apiClient: {
+    get: vi.fn(),
     post: vi.fn(),
   },
 }))
+
+describe('searchPlaces', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.get).mockReset()
+  })
+
+  it('sends the query and abort signal and validates the suggestion response', async () => {
+    const signal = new AbortController().signal
+    const places = [
+      { label: 'Chicago, IL', latitude: 41.8781, longitude: -87.6298 },
+    ]
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { places } })
+
+    await expect(searchPlaces('Chicago', signal)).resolves.toEqual(places)
+    expect(apiClient.get).toHaveBeenCalledWith('/places/suggest/', {
+      params: { q: 'Chicago' },
+      signal,
+    })
+  })
+
+  it('rejects malformed suggestion data with a safe API error', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { places: [{ label: 'Bad coordinates', latitude: 91, longitude: 0 }] },
+    })
+
+    await expect(searchPlaces('Chicago')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'The server returned invalid place suggestions.',
+    })
+  })
+})
 
 describe('planTrip', () => {
   beforeEach(() => {

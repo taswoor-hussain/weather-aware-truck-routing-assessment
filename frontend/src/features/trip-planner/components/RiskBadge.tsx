@@ -1,4 +1,5 @@
 import type { RiskLevel } from '../types'
+import { RISK_PRESENTATION } from '../utils/riskPresentation'
 
 interface RiskBadgeProps {
   level: RiskLevel
@@ -12,20 +13,12 @@ const riskStyles: Record<RiskLevel, string> = {
   no_travel: 'bg-slate-950 text-white',
 }
 
-const riskLabels: Record<RiskLevel, string> = {
-  low: 'Low',
-  moderate: 'Moderate',
-  high: 'High',
-  severe: 'Severe',
-  no_travel: 'No Travel',
-}
-
 export function RiskBadge({ level }: RiskBadgeProps) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${riskStyles[level]}`}
     >
-      {riskLabels[level]}
+      {RISK_PRESENTATION[level].label}
     </span>
   )
 }

@@ -1,55 +1,83 @@
+import { useState } from 'react'
 import { BrandHeader } from './BrandHeader'
+import { TripMapPanel } from './TripMapPanel'
 import { TripForm } from './TripForm'
-
-const highlights = [
-  { value: '3', label: 'route options' },
-  { value: '48h', label: 'weather outlook' },
-  { value: 'ETA', label: 'checkpoint timing' },
-]
+import { TripResult } from './TripResult'
+import type { TripPlanResponse } from '../types'
 
 export function TripPlannerPage() {
+  const [plan, setPlan] = useState<TripPlanResponse | null>(null)
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
+  const [isTripPanelOpen, setIsTripPanelOpen] = useState(true)
+  const [forecastHour, setForecastHour] = useState(0)
+  const [isForecastPlaying, setIsForecastPlaying] = useState(false)
+
+  function handlePlan(nextPlan: TripPlanResponse | null) {
+    setPlan(nextPlan)
+    setForecastHour(0)
+    setIsForecastPlaying(false)
+    setSelectedRouteId(
+      nextPlan
+        ? nextPlan.recommendation.route_id ?? nextPlan.routes[0]?.id ?? null
+        : null,
+    )
+  }
+
   return (
-    <main className="min-h-screen bg-slate-100">
-      <div className="bg-[radial-gradient(ellipse_at_75%_0%,rgba(28,111,100,0.44),transparent_42%),linear-gradient(125deg,#0b1720_0%,#122631_55%,#173b42_100%)]">
-        <div className="mx-auto w-full max-w-7xl px-4 pb-20 sm:px-7 lg:px-10">
-          <BrandHeader />
-          <div className="grid items-center gap-10 pb-8 pt-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:pb-16 lg:pt-16">
-            <section className="min-w-0 max-w-xl text-white">
-              <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-teal-100">
-                <span className="size-1.5 rounded-full bg-amber-300" />
-                WEATHER-AWARE TRUCK ROUTING
-              </p>
-              <h1 className="mt-6 text-4xl font-semibold leading-[1.07] tracking-[-0.045em] sm:text-5xl lg:text-[3.55rem]">
-                Make every mile
-                <span className="block text-teal-200">a safer one.</span>
-              </h1>
-              <p className="mt-5 max-w-lg text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-                See the road ahead through the forecast. Compare truck routes with
-                weather, cargo weight, and arrival-time conditions in mind.
-              </p>
+    <main className="relative h-dvh min-h-0 overflow-hidden bg-slate-100">
+      <TripMapPanel
+        plan={plan}
+        selectedRouteId={selectedRouteId}
+        onSelectRoute={setSelectedRouteId}
+        forecastHour={forecastHour}
+        onForecastHourChange={setForecastHour}
+        isPlaying={isForecastPlaying}
+        onPlaybackChange={setIsForecastPlaying}
+      />
 
-              <div className="mt-9 grid max-w-md grid-cols-3 divide-x divide-white/15 border-y border-white/15 py-4">
-                {highlights.map(({ value, label }) => (
-                  <div key={label} className="px-3 first:pl-0 last:pr-0">
-                    <p className="text-lg font-semibold text-white">{value}</p>
-                    <p className="mt-1 text-[11px] leading-4 text-slate-400">{label}</p>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-5 text-xs leading-5 text-slate-400">
-                Planning with conditions in mind helps drivers make more informed decisions.
-              </p>
-            </section>
-
-            <TripForm />
-          </div>
-        </div>
+      <div className="absolute left-3 top-3 z-[1200] w-fit rounded-2xl bg-slate-950/90 px-3 shadow-xl shadow-slate-950/20 backdrop-blur-md sm:left-4 sm:top-4">
+        <BrandHeader />
       </div>
-      <footer className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10">
-        <span>Roadwise · Weather-aware truck routing</span>
-        <span>Built to help drivers plan with more context.</span>
-      </footer>
+
+      {isTripPanelOpen ? (
+        <aside className="absolute bottom-[13rem] left-3 top-[5.25rem] z-[1100] flex w-[min(25rem,calc(100vw-1.5rem))] flex-col gap-3 overflow-y-auto rounded-[1.75rem] border border-white/80 bg-slate-100/80 p-2.5 shadow-[0_24px_70px_-30px_rgba(15,35,48,0.5)] backdrop-blur-md sm:bottom-4 sm:left-4 sm:top-20 sm:w-[min(25rem,calc(100vw-2rem))] sm:p-3">
+          <div className="flex items-center justify-between px-2 pt-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
+              Trip workspace
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsTripPanelOpen(false)}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-white hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+              aria-label="Hide trip planner panel"
+            >
+              Hide panel
+            </button>
+          </div>
+          <TripForm onPlan={handlePlan} />
+          {plan && (
+            <TripResult
+              plan={plan}
+              selectedRouteId={selectedRouteId ?? plan.routes[0].id}
+              onSelectRoute={setSelectedRouteId}
+            />
+          )}
+          <p className="px-3 pb-2 text-xs leading-5 text-slate-500">
+            Routes and forecasts are estimates. Follow posted restrictions.
+          </p>
+        </aside>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsTripPanelOpen(true)}
+          className="absolute left-3 top-20 z-[1100] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/80 bg-white/95 px-4 text-sm font-semibold text-slate-900 shadow-lg backdrop-blur transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:left-4"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4">
+            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          Trip planner
+        </button>
+      )}
     </main>
   )
 }

@@ -10,6 +10,12 @@ export interface TripRequest {
   checkpoint_interval_miles: CheckpointInterval
 }
 
+export interface PlaceSuggestion {
+  label: string
+  latitude: number
+  longitude: number
+}
+
 export interface RouteSummary {
   distance_miles: number
   travel_time_seconds: number

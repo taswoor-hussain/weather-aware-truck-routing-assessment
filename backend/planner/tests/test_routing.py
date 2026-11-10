@@ -5,7 +5,7 @@ import requests
 from django.test import SimpleTestCase
 
 from planner.services.errors import RoutingServiceError
-from planner.services.geocoding import Coordinates, resolve_location
+from planner.services.geocoding import Coordinates, resolve_location, suggest_locations
 from planner.services.routing import calculate_routes
 from planner.services.tomtom_client import TomTomClient
 
@@ -96,6 +96,49 @@ class GeocodingTests(SimpleTestCase):
 
         self.assertEqual(raised.exception.code, "location_not_found")
         self.assertEqual(raised.exception.status_code, 422)
+
+    def test_suggest_locations_uses_typeahead_and_returns_only_valid_results(self):
+        client = Mock(spec=TomTomClient)
+        client.get_json.return_value = {
+            "results": [
+                {
+                    "address": {"freeformAddress": "Chicago, IL"},
+                    "position": {"lat": 41.8781, "lon": -87.6298},
+                },
+                {
+                    "address": {"freeformAddress": "Denver, CO"},
+                    "position": {"lat": 39.7392, "lon": -104.9903},
+                },
+            ]
+        }
+
+        places = suggest_locations(client, "Chi")
+
+        self.assertEqual(
+            places,
+            [{"label": "Chicago, IL", "latitude": 41.8781, "longitude": -87.6298},
+             {"label": "Denver, CO", "latitude": 39.7392, "longitude": -104.9903}],
+        )
+        client.get_json.assert_called_once_with(
+            "/search/2/search/Chi.json",
+            params={"typeahead": True, "limit": 5, "countrySet": "US"},
+        )
+
+    def test_suggest_locations_rejects_malformed_nonempty_provider_results(self):
+        client = Mock(spec=TomTomClient)
+        client.get_json.return_value = {"results": [{"position": {"lat": 91, "lon": 0}}]}
+
+        with self.assertRaises(RoutingServiceError) as raised:
+            suggest_locations(client, "Chi")
+
+        self.assertEqual(raised.exception.code, "invalid_geocoding_response")
+        self.assertEqual(raised.exception.status_code, 502)
+
+    def test_suggest_locations_returns_empty_for_no_matches(self):
+        client = Mock(spec=TomTomClient)
+        client.get_json.return_value = {"results": []}
+
+        self.assertEqual(suggest_locations(client, "Nop"), [])
 
 
 class RoutingTests(SimpleTestCase):

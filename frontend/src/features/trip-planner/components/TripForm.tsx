@@ -5,12 +5,16 @@ import { FormField } from '../../../shared/components/FormField'
 import { StatusBanner } from '../../../shared/components/StatusBanner'
 import { ApiError, toApiError } from '../../../shared/api/ApiError'
 import { tripFormSchema, type TripFormInput, type TripFormValues } from '../schemas/tripSchema'
-import type { TripRequest } from '../types'
+import type { PlaceSuggestion, TripPlanResponse, TripRequest } from '../types'
 import { usePlanTrip } from '../hooks/usePlanTrip'
-import { TripResult } from './TripResult'
+import { PlaceInput } from './PlaceInput'
 
 const inputClassName =
-  'min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-700 focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10'
+  'min-h-12 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-700 focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10'
+
+interface TripFormProps {
+  onPlan: (plan: TripPlanResponse | null) => void
+}
 
 function toTripRequest(values: TripFormValues): TripRequest {
   return {
@@ -22,9 +26,11 @@ function toTripRequest(values: TripFormValues): TripRequest {
   }
 }
 
-export function TripForm() {
+export function TripForm({ onPlan }: TripFormProps) {
   const mutation = usePlanTrip()
   const [requestError, setRequestError] = useState<ApiError | null>(null)
+  const [selectedOrigin, setSelectedOrigin] = useState<PlaceSuggestion | null>(null)
+  const [selectedDestination, setSelectedDestination] = useState<PlaceSuggestion | null>(null)
   const form = useForm<TripFormInput, undefined, TripFormValues>({
     resolver: zodResolver(tripFormSchema),
     defaultValues: {
@@ -35,8 +41,6 @@ export function TripForm() {
       checkpointInterval: '25',
     },
   })
-  const originInput = form.register('origin')
-  const destinationInput = form.register('destination')
   const departureInput = form.register('departureLocal')
   const loadInput = form.register('loadWeight')
   const checkpointInput = form.register('checkpointInterval')
@@ -44,8 +48,24 @@ export function TripForm() {
   const onSubmit: SubmitHandler<TripFormValues> = async (values) => {
     mutation.reset()
     setRequestError(null)
+    onPlan(null)
+    if (!selectedOrigin) {
+      form.setError('origin', {
+        type: 'manual',
+        message: 'Choose an origin from the location suggestions.',
+      })
+    }
+    if (!selectedDestination) {
+      form.setError('destination', {
+        type: 'manual',
+        message: 'Choose a destination from the location suggestions.',
+      })
+    }
+    if (!selectedOrigin || !selectedDestination) return
+
     try {
-      await mutation.mutateAsync(toTripRequest(values))
+      const plan = await mutation.mutateAsync(toTripRequest(values))
+      onPlan(plan)
     } catch (error) {
       const apiError = toApiError(error)
 
@@ -90,70 +110,79 @@ export function TripForm() {
       aria-labelledby="trip-form-title"
       className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-35px_rgba(15,35,48,0.28)] sm:p-8"
     >
-      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-800">
             Your trip
           </p>
-          <h2 id="trip-form-title" className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
-            Start with the details
+          <h2 id="trip-form-title" className="mt-1.5 text-xl font-bold tracking-tight text-slate-950">
+            Plan a safer trip
           </h2>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
-          Step 01 / 03
+        <span className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-800">
+          <span className="size-2 rounded-full bg-emerald-500" />
+          Live forecast
         </span>
       </div>
 
-      <form className="mt-6 space-y-6" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
-          <FormField
+      <form className="mt-5 min-w-0 space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <div className="space-y-4">
+          <PlaceInput
             id="origin"
             label="Origin"
+            value={form.watch('origin')}
+            placeholder="Search a city, address, or ZIP"
+            hintId="origin-hint"
             error={form.formState.errors.origin?.message}
-            hint="City, state, or ZIP code"
-          >
-            <input
-              id="origin"
-              autoComplete="address-level2"
-              className={inputClassName}
-              placeholder="Chicago, IL"
-              maxLength={120}
-              {...originInput}
-              {...fieldProps('origin')}
-              disabled={mutation.isPending}
-              onChange={(event) => {
-                void originInput.onChange(event)
-                form.clearErrors('origin')
-                setRequestError(null)
-                mutation.reset()
-              }}
-            />
-          </FormField>
+            selected={selectedOrigin !== null}
+            disabled={mutation.isPending}
+            onChange={(value) => {
+              setSelectedOrigin(null)
+              form.setValue('origin', value, { shouldDirty: true })
+              form.clearErrors('origin')
+              setRequestError(null)
+              onPlan(null)
+              mutation.reset()
+            }}
+            onSelect={(place) => {
+              setSelectedOrigin(place)
+              form.setValue('origin', place.label, { shouldDirty: true, shouldValidate: true })
+              form.clearErrors('origin')
+              setRequestError(null)
+              onPlan(null)
+              mutation.reset()
+            }}
+          />
 
-          <FormField
+          <PlaceInput
             id="destination"
             label="Destination"
+            value={form.watch('destination')}
+            placeholder="Search a city, address, or ZIP"
+            hintId="destination-hint"
             error={form.formState.errors.destination?.message}
-            hint="Where should the truck arrive?"
-          >
-            <input
-              id="destination"
-              autoComplete="address-level2"
-              className={inputClassName}
-              placeholder="Denver, CO"
-              maxLength={120}
-              {...destinationInput}
-              {...fieldProps('destination')}
-              disabled={mutation.isPending}
-              onChange={(event) => {
-                void destinationInput.onChange(event)
-                form.clearErrors('destination')
-                setRequestError(null)
-                mutation.reset()
-              }}
-            />
-          </FormField>
+            selected={selectedDestination !== null}
+            disabled={mutation.isPending}
+            onChange={(value) => {
+              setSelectedDestination(null)
+              form.setValue('destination', value, { shouldDirty: true })
+              form.clearErrors('destination')
+              setRequestError(null)
+              onPlan(null)
+              mutation.reset()
+            }}
+            onSelect={(place) => {
+              setSelectedDestination(place)
+              form.setValue('destination', place.label, { shouldDirty: true, shouldValidate: true })
+              form.clearErrors('destination')
+              setRequestError(null)
+              onPlan(null)
+              mutation.reset()
+            }}
+          />
+        </div>
 
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
           <FormField
             id="departureLocal"
             label="Departure date & time"
@@ -171,6 +200,7 @@ export function TripForm() {
                 void departureInput.onChange(event)
                 form.clearErrors('departureLocal')
                 setRequestError(null)
+                onPlan(null)
                 mutation.reset()
               }}
             />
@@ -198,6 +228,7 @@ export function TripForm() {
                   void loadInput.onChange(event)
                   form.clearErrors('loadWeight')
                   setRequestError(null)
+                  onPlan(null)
                   mutation.reset()
                 }}
               />
@@ -222,6 +253,7 @@ export function TripForm() {
                 void checkpointInput.onChange(event)
                 form.clearErrors('checkpointInterval')
                 setRequestError(null)
+                onPlan(null)
                 mutation.reset()
               }}
             >
@@ -238,16 +270,11 @@ export function TripForm() {
           </StatusBanner>
         )}
 
-        {mutation.isSuccess && <TripResult plan={mutation.data} />}
-
-        <div className="flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-sm text-xs leading-5 text-slate-500">
-            Route options are generated for the departure time and truck type you entered.
-          </p>
+        <div className="border-t border-slate-100 pt-4">
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:bg-teal-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-wait disabled:opacity-70"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:bg-teal-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-wait disabled:opacity-70"
           >
             {mutation.isPending ? (
               <>
@@ -264,6 +291,9 @@ export function TripForm() {
               </>
             )}
           </button>
+          <p className="mt-3 text-center text-xs leading-5 text-slate-500">
+            Weather and ETA are compared across three truck routes.
+          </p>
         </div>
       </form>
     </section>

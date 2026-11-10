@@ -81,6 +81,11 @@ risk summaries, and a recommendation status. Each checkpoint also includes
 hourly risk/weather snapshots from departure through +48 hours for the map
 forecast slider.
 
+`GET /api/places/suggest/?q=...` returns up to five TomTom typeahead results
+for the origin and destination inputs. Requests shorter than three characters
+are rejected, suggestions are rate-limited, and the TomTom key remains on the
+server.
+
 ```json
 {
   "origin": "Chicago, IL",
@@ -123,6 +128,10 @@ forecast horizon or the forecast cannot cover the slider's full 48-hour window.
 The map uses the same checkpoint locations to render 49 hourly snapshots
 (departure hour 0 through hour 48); its selected hour is a corridor-wide time,
 while route-card risk summaries continue to use each truck checkpoint's ETA.
+The map fills the viewport behind a hideable trip panel and supports mouse-wheel
+or trackpad zoom, dragging, double-click zoom, touch pinch, and keyboard
+navigation. Playing the forecast animates a light along the selected route's
+actual road geometry while checkpoint risk colors update with the forecast hour.
 
 Each checkpoint receives the highest applicable risk across wind, rain, and
 snow. The thresholds follow the assessment:

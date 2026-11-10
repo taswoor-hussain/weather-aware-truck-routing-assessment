@@ -76,7 +76,13 @@ const noSafeRoutePlan: TripPlanResponse = {
 
 describe('TripResult', () => {
   it('clearly warns when every route has No Travel weather', () => {
-    render(<TripResult plan={noSafeRoutePlan} />)
+    render(
+      <TripResult
+        plan={noSafeRoutePlan}
+        selectedRouteId="route-1"
+        onSelectRoute={vi.fn()}
+      />,
+    )
 
     expect(screen.getByRole('alert')).toHaveTextContent('No safe route in forecast')
     expect(screen.getByRole('alert')).toHaveTextContent('Do not depart.')

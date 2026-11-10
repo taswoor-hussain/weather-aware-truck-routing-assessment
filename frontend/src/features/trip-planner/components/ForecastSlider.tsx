@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { RISK_PRESENTATION } from '../utils/riskPresentation'
 
 const MAX_FORECAST_HOUR = 48
 const PLAYBACK_INTERVAL_MS = 500
@@ -6,7 +7,9 @@ const PLAYBACK_INTERVAL_MS = 500
 interface ForecastSliderProps {
   departureAt: string
   hour: number
+  isPlaying: boolean
   onChange: (hour: number) => void
+  onPlaybackChange: (isPlaying: boolean) => void
 }
 
 const sliderClassName =
@@ -15,10 +18,10 @@ const sliderClassName =
 export function ForecastSlider({
   departureAt,
   hour,
+  isPlaying,
   onChange,
+  onPlaybackChange,
 }: ForecastSliderProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
-
   useEffect(() => {
     if (!isPlaying) return
 
@@ -26,12 +29,12 @@ export function ForecastSlider({
       const nextHour = hour + 1
       onChange(nextHour)
       if (nextHour >= MAX_FORECAST_HOUR) {
-        setIsPlaying(false)
+        onPlaybackChange(false)
       }
     }, PLAYBACK_INTERVAL_MS)
 
     return () => window.clearInterval(timer)
-  }, [hour, isPlaying, onChange])
+  }, [hour, isPlaying, onChange, onPlaybackChange])
 
   const forecastTime = new Date(
     new Date(departureAt).getTime() + hour * 60 * 60 * 1000,
@@ -47,13 +50,13 @@ export function ForecastSlider({
 
   function togglePlayback() {
     if (hour >= MAX_FORECAST_HOUR) onChange(0)
-    setIsPlaying((playing) => !playing)
+    onPlaybackChange(!isPlaying)
   }
 
   return (
     <section
       aria-labelledby="forecast-slider-title"
-      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+      className="rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_12px_35px_-16px_rgba(15,23,42,0.55)] backdrop-blur-md sm:p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -91,13 +94,24 @@ export function ForecastSlider({
         value={hour}
         aria-valuetext={`Plus ${hour} hours after departure`}
         onChange={(event) => {
-          setIsPlaying(false)
           onChange(Number(event.currentTarget.value))
+          onPlaybackChange(false)
         }}
       />
       <div className="mt-2 flex justify-between text-[11px] font-medium text-slate-500" aria-hidden="true">
         {[0, 12, 24, 36, 48].map((tick) => (
           <span key={tick}>{tick}h</span>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-100 pt-2.5">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          Checkpoint risk
+        </span>
+        {Object.values(RISK_PRESENTATION).map(({ label, color }) => (
+          <span key={label} className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600">
+            <i aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: color }} />
+            {label}
+          </span>
         ))}
       </div>
     </section>
