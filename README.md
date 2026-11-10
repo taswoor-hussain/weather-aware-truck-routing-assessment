@@ -30,6 +30,36 @@ npm run dev
 The API health check is available at `http://127.0.0.1:8000/api/health/`.
 Vite proxies `/api` requests to Django during local development.
 
+Run frontend validation from `frontend/`:
+
+```bash
+npm run build
+npm run lint
+npm test
+```
+
+## Frontend structure
+
+The React app is organized by feature rather than putting form, API, and page
+state in one component:
+
+```text
+frontend/src/
+  app/                         shared application providers
+  features/trip-planner/
+    api/                       trip API adapter and contract tests
+    components/                planner page, form, result presentation
+    hooks/                     mutation lifecycle
+    schemas/                   client-side form validation
+  shared/
+    api/                       configured Axios client and API errors
+    components/                reusable field and status components
+```
+
+The form uses React Hook Form and Zod, the API adapter uses Axios with a request
+timeout and validates successful response shapes, and TanStack Query owns the
+pending/success/error mutation lifecycle. Tailwind CSS provides the UI styling.
+
 ## Trip request API
 
 `POST /api/plan/` validates the trip request and returns `200 OK`. Route
