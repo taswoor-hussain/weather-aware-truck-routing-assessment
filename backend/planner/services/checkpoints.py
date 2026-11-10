@@ -6,6 +6,7 @@ from .errors import RoutingServiceError
 from .routing import RouteOption
 
 EARTH_RADIUS_MILES = 3958.7613
+MAX_MERCATOR_LATITUDE = 85.0511287798066
 
 
 class Checkpoint(TypedDict):
@@ -101,14 +102,30 @@ def _point_at_distance(
             fraction = (distance_miles - traversed) / segment_length if segment_length else 0
             start_longitude, start_latitude = coordinates[index]
             end_longitude, end_latitude = coordinates[index + 1]
+            start_y = _mercator_y(start_latitude)
+            end_y = _mercator_y(end_latitude)
+            latitude = _inverse_mercator_y(start_y + (end_y - start_y) * fraction)
             return (
-                start_latitude + (end_latitude - start_latitude) * fraction,
+                latitude,
                 start_longitude + (end_longitude - start_longitude) * fraction,
             )
         traversed += segment_length
 
     longitude, latitude = coordinates[-1]
     return latitude, longitude
+
+
+def _mercator_y(latitude: float) -> float:
+    clamped_latitude = max(
+        -MAX_MERCATOR_LATITUDE,
+        min(MAX_MERCATOR_LATITUDE, latitude),
+    )
+    radians = math.radians(clamped_latitude)
+    return math.log(math.tan(math.pi / 4 + radians / 2))
+
+
+def _inverse_mercator_y(y: float) -> float:
+    return math.degrees(2 * math.atan(math.exp(y)) - math.pi / 2)
 
 
 def _distance_between(start: list[float], end: list[float]) -> float:

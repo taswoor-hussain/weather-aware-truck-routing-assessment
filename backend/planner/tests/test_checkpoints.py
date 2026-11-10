@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timezone
 
 from django.test import SimpleTestCase
@@ -67,3 +68,35 @@ class CheckpointTests(SimpleTestCase):
 
         self.assertEqual([point["distance_miles"] for point in checkpoints], [0, 5])
         self.assertEqual(sum(point["segment_miles"] for point in checkpoints), 5)
+
+    def test_checkpoint_position_matches_the_rendered_mercator_route_line(self):
+        route = {
+            **self.route,
+            "summary": {
+                **self.route["summary"],
+                "distance_miles": 1000,
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-100, 30], [-100, 50]],
+            },
+        }
+
+        checkpoint = build_checkpoints(
+            route,
+            departure_at=datetime(2026, 11, 11, 10, tzinfo=timezone.utc),
+            interval_miles=500,
+        )[1]
+
+        def mercator_y(latitude: float) -> float:
+            radians = math.radians(latitude)
+            return math.log(math.tan(math.pi / 4 + radians / 2))
+
+        def inverse_mercator_y(y: float) -> float:
+            return math.degrees(2 * math.atan(math.exp(y)) - math.pi / 2)
+
+        expected_latitude = inverse_mercator_y(
+            (mercator_y(30) + mercator_y(50)) / 2
+        )
+        self.assertAlmostEqual(checkpoint["latitude"], expected_latitude, places=7)
+        self.assertAlmostEqual(checkpoint["longitude"], -100, places=7)
