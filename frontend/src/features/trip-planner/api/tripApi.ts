@@ -1,10 +1,14 @@
 import { z } from 'zod'
 import { ApiError, toApiError } from '../../../shared/api/ApiError'
 import { apiClient } from '../../../shared/api/apiClient'
-import { CHECKPOINT_INTERVALS, type TripRequest, type TripValidationResponse } from '../types'
+import {
+  CHECKPOINT_INTERVALS,
+  type TripPlanResponse,
+  type TripRequest,
+} from '../types'
 
-const tripResponseSchema = z.object({
-  status: z.literal('validated'),
+const tripPlanResponseSchema = z.object({
+  status: z.literal('planned'),
   trip: z.object({
     origin: z.string(),
     destination: z.string(),
@@ -14,14 +18,31 @@ const tripResponseSchema = z.object({
       CHECKPOINT_INTERVALS.map((value) => z.literal(value)),
     ),
   }),
+  routes: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        summary: z.object({
+          distance_miles: z.number().positive(),
+          travel_time_seconds: z.number().int().positive(),
+          departure_at: z.string().datetime({ offset: true }),
+          arrival_at: z.string().datetime({ offset: true }),
+        }),
+        geometry: z.object({
+          type: z.literal('LineString'),
+          coordinates: z.array(z.tuple([z.number(), z.number()])).min(2),
+        }),
+      }),
+    )
+    .length(3),
 })
 
-export async function validateTrip(
+export async function planTrip(
   request: TripRequest,
-): Promise<TripValidationResponse> {
+): Promise<TripPlanResponse> {
   try {
     const { data } = await apiClient.post<unknown>('/plan/', request)
-    const result = tripResponseSchema.safeParse(data)
+    const result = tripPlanResponseSchema.safeParse(data)
     if (!result.success) {
       throw new ApiError('The server returned an invalid trip response.')
     }

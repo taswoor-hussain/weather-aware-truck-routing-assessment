@@ -6,7 +6,7 @@ import { StatusBanner } from '../../../shared/components/StatusBanner'
 import { ApiError, toApiError } from '../../../shared/api/ApiError'
 import { tripFormSchema, type TripFormInput, type TripFormValues } from '../schemas/tripSchema'
 import type { TripRequest } from '../types'
-import { useValidateTrip } from '../hooks/useValidateTrip'
+import { usePlanTrip } from '../hooks/usePlanTrip'
 import { TripResult } from './TripResult'
 
 const inputClassName =
@@ -23,7 +23,7 @@ function toTripRequest(values: TripFormValues): TripRequest {
 }
 
 export function TripForm() {
-  const mutation = useValidateTrip()
+  const mutation = usePlanTrip()
   const [requestError, setRequestError] = useState<ApiError | null>(null)
   const form = useForm<TripFormInput, undefined, TripFormValues>({
     resolver: zodResolver(tripFormSchema),
@@ -238,11 +238,11 @@ export function TripForm() {
           </StatusBanner>
         )}
 
-        {mutation.isSuccess && <TripResult trip={mutation.data.trip} />}
+        {mutation.isSuccess && <TripResult plan={mutation.data} />}
 
         <div className="flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-sm text-xs leading-5 text-slate-500">
-            Your trip details are checked before route planning begins.
+            Route options are generated for the departure time and truck type you entered.
           </p>
           <button
             type="submit"
@@ -255,11 +255,11 @@ export function TripForm() {
                   aria-hidden="true"
                   className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                 />
-                Checking trip…
+                Finding routes…
               </>
             ) : (
               <>
-                Validate trip
+                Find truck routes
                 <span aria-hidden="true">→</span>
               </>
             )}

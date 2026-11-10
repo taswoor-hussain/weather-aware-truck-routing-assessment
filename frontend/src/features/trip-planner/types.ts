@@ -10,7 +10,24 @@ export interface TripRequest {
   checkpoint_interval_miles: CheckpointInterval
 }
 
-export interface TripValidationResponse {
-  status: 'validated'
+export interface RouteSummary {
+  distance_miles: number
+  travel_time_seconds: number
+  departure_at: string
+  arrival_at: string
+}
+
+export interface RouteOption {
+  id: string
+  summary: RouteSummary
+  geometry: {
+    type: 'LineString'
+    coordinates: [number, number][]
+  }
+}
+
+export interface TripPlanResponse {
+  status: 'planned'
   trip: TripRequest
+  routes: RouteOption[]
 }

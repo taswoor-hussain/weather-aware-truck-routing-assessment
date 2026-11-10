@@ -16,7 +16,8 @@ Use Python 3.10+ and Node.js 20+.
 ```bash
 # Terminal 1: Django API
 cd backend
-cp .env.example .env  # Replace the local secret with a random value.
+if [ ! -f .env ]; then cp .env.example .env; fi
+# Keep an existing .env; otherwise replace the example secret and add your TomTom key.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -71,8 +72,10 @@ pending/success/error mutation lifecycle. Tailwind CSS provides the UI styling.
 
 ## Trip request API
 
-`POST /api/plan/` validates the trip request and returns `200 OK`. Route
-generation and weather analysis will be added in later stages.
+`POST /api/plan/` validates the trip request, geocodes both places, and requests
+three distinct truck routes from TomTom. A successful response includes route
+summaries and GeoJSON LineString coordinates. Weather analysis and route
+recommendation are later stages.
 
 ```json
 {
@@ -86,7 +89,22 @@ generation and weather analysis will be added in later stages.
 
 `checkpoint_interval_miles` is optional and defaults to `25`; supported values
 are `10`, `25`, and `50`. `departure_at` must include a timezone offset.
-Invalid requests return field-specific `400 Bad Request` errors.
+Invalid requests return field-specific `400 Bad Request` errors. Missing
+provider configuration returns `503`; unmatched places or fewer than three
+distinct routes return `422`. Provider details and credentials are not returned
+to the client.
+
+TomTom configuration belongs in the ignored `backend/.env` file. See the
+[TomTom Calculate Route documentation](https://docs.tomtom.com/routing-api/documentation/tomtom-maps/v1/calculate-route).
+
+```env
+TOMTOM_API_KEY=your-key
+```
+
+The key stays on the server and is never added to frontend assets or responses.
+Trip planning uses TomTom's truck travel mode and departure time. The brief
+collects cargo weight but not tractor/trailer gross weight or dimensions, so
+those vehicle restriction inputs are not guessed or sent to the routing API.
 
 ## Backend safety defaults
 
@@ -98,8 +116,11 @@ Invalid requests return field-specific `400 Bad Request` errors.
   fields, and rate-limits trip planning requests.
 - The in-memory throttle cache is per process. A multi-instance deployment
   should use a shared cache (such as Redis) before relying on global rate limits.
+- TomTom routing is called with bounded connect/read timeouts. Automated tests
+  mock the provider transport and do not require a live API key.
 
 ## Development status
 
-This repository is being built in small, reviewable stages. The current backend
-validates trip requests; routing and weather features are still to come.
+This repository is being built in small, reviewable stages. Trip validation,
+TomTom truck route options, and route summaries are in place; checkpoint weather,
+risk scoring, route recommendation, and map rendering are still to come.

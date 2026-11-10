@@ -1,6 +1,40 @@
+from unittest.mock import patch
+
 from django.core.cache import cache
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
+
+from planner.services.errors import RoutingServiceError
+
+
+def planned_response(checkpoint_interval_miles: int = 25) -> dict[str, object]:
+    routes = [
+        {
+            "id": f"route-{index + 1}",
+            "summary": {
+                "distance_miles": 900.0 + index,
+                "travel_time_seconds": 36000 + index * 60,
+                "departure_at": "2026-11-11T14:30:00+00:00",
+                "arrival_at": "2026-11-12T00:30:00+00:00",
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-87.0, 41.0], [-104.0, 39.0 + index]],
+            },
+        }
+        for index in range(3)
+    ]
+    return {
+        "status": "planned",
+        "trip": {
+            "origin": "Chicago, IL",
+            "destination": "Denver, CO",
+            "departure_at": "2026-11-11T14:30:00+00:00",
+            "load_weight_lb": 32000,
+            "checkpoint_interval_miles": checkpoint_interval_miles,
+        },
+        "routes": routes,
+    }
 
 
 class HealthEndpointTests(SimpleTestCase):
@@ -26,14 +60,57 @@ class TripRequestApiTests(SimpleTestCase):
             "load_weight_lb": 32000,
         }
 
-    def test_valid_trip_request_is_accepted_with_default_checkpoint_interval(self):
+    @override_settings(TOMTOM_API_KEY="test-key")
+    @patch("planner.views.plan_trip")
+    def test_valid_trip_request_returns_a_plan(self, mock_plan_trip):
+        mock_plan_trip.return_value = planned_response()
         response = self.client.post(self.url, self.valid_payload, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "validated")
+        self.assertEqual(response.json()["status"], "planned")
         self.assertEqual(response.json()["trip"]["checkpoint_interval_miles"], 25)
+        mock_plan_trip.assert_called_once()
+        self.assertEqual(mock_plan_trip.call_args.kwargs["origin"], "Chicago, IL")
+        self.assertEqual(mock_plan_trip.call_args.kwargs["load_weight_lb"], 32000)
+        self.assertEqual(mock_plan_trip.call_args.kwargs["api_key"], "test-key")
 
-    def test_supported_checkpoint_interval_is_preserved(self):
+    @override_settings(TOMTOM_API_KEY="")
+    def test_missing_routing_configuration_returns_service_unavailable(self):
+        response = self.client.post(
+            self.url,
+            self.valid_payload,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "routing_not_configured")
+
+    @override_settings(TOMTOM_API_KEY="test-key")
+    @patch("planner.views.plan_trip")
+    def test_provider_errors_return_a_safe_structured_response(self, mock_plan_trip):
+        mock_plan_trip.side_effect = RoutingServiceError(
+            "The routing provider timed out. Please try again.",
+            code="routing_timeout",
+            status_code=503,
+        )
+        response = self.client.post(
+            self.url,
+            self.valid_payload,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "code": "routing_timeout",
+                "detail": "The routing provider timed out. Please try again.",
+            },
+        )
+
+    @patch("planner.views.plan_trip")
+    def test_supported_checkpoint_interval_is_preserved(self, mock_plan_trip):
+        mock_plan_trip.return_value = planned_response(checkpoint_interval_miles=10)
         response = self.client.post(
             self.url,
             {**self.valid_payload, "checkpoint_interval_miles": 10},
@@ -118,7 +195,8 @@ class TripRequestThrottleTests(SimpleTestCase):
     def tearDown(self):
         cache.clear()
 
-    def test_plan_requests_are_rate_limited(self):
+    @patch("planner.views.plan_trip", return_value=planned_response())
+    def test_plan_requests_are_rate_limited(self, mock_plan_trip):
         responses = [
             self.client.post(
                 self.url,

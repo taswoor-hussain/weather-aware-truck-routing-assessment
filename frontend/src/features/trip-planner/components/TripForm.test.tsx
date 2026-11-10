@@ -3,14 +3,41 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../../shared/api/ApiError'
-import type { TripRequest } from '../types'
+import type { RouteOption, TripPlanResponse, TripRequest } from '../types'
 import { TripForm } from './TripForm'
 
-const validateTrip = vi.hoisted(() => vi.fn())
+const planTrip = vi.hoisted(() => vi.fn())
 
 vi.mock('../api/tripApi', () => ({
-  validateTrip,
+  planTrip,
 }))
+
+function makeRoute(index: number): RouteOption {
+  return {
+    id: `route-${index + 1}`,
+    summary: {
+      distance_miles: 900 + index * 10,
+      travel_time_seconds: 36000 + index * 600,
+      departure_at: '2026-11-11T14:30:00Z',
+      arrival_at: `2026-11-12T00:${String(index * 10).padStart(2, '0')}:00Z`,
+    },
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [-87.6, 41.8],
+        [-104.9, 39.7 + index * 0.1],
+      ],
+    },
+  }
+}
+
+function makePlan(request: TripRequest): TripPlanResponse {
+  return {
+    status: 'planned',
+    trip: request,
+    routes: [makeRoute(0), makeRoute(1), makeRoute(2)],
+  }
+}
 
 function renderForm() {
   const queryClient = new QueryClient({
@@ -25,26 +52,23 @@ function renderForm() {
 
 describe('TripForm', () => {
   beforeEach(() => {
-    validateTrip.mockReset()
+    planTrip.mockReset()
   })
 
   it('shows local field validation without calling the API', async () => {
     const user = userEvent.setup()
     renderForm()
 
-    await user.click(screen.getByRole('button', { name: /validate trip/i }))
+    await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
     expect(await screen.findByText('Enter an origin.')).toBeInTheDocument()
     expect(screen.getByText('Choose a departure date and time.')).toBeInTheDocument()
-    expect(validateTrip).not.toHaveBeenCalled()
+    expect(planTrip).not.toHaveBeenCalled()
   })
 
   it('submits the normalized request and shows a success summary', async () => {
     const user = userEvent.setup()
-    validateTrip.mockImplementation(async (request: TripRequest) => ({
-      status: 'validated',
-      trip: request,
-    }))
+    planTrip.mockImplementation(async (request: TripRequest) => makePlan(request))
     renderForm()
 
     await user.type(screen.getByLabelText('Origin'), 'Chicago, IL')
@@ -52,10 +76,12 @@ describe('TripForm', () => {
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
-    await user.click(screen.getByRole('button', { name: /validate trip/i }))
+    await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
-    expect(await screen.findByText('Trip details verified')).toBeInTheDocument()
-    expect(validateTrip.mock.calls[0][0]).toEqual(
+    expect(await screen.findByText('Three truck routes found')).toBeInTheDocument()
+    expect(screen.getByText('Compare route options')).toBeInTheDocument()
+    expect(screen.getByText('900 mi')).toBeInTheDocument()
+    expect(planTrip.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         origin: 'Chicago, IL',
         destination: 'Denver, CO',
@@ -67,7 +93,7 @@ describe('TripForm', () => {
 
   it('maps server validation errors back to the matching field', async () => {
     const user = userEvent.setup()
-    validateTrip.mockRejectedValue(
+    planTrip.mockRejectedValue(
       new ApiError('Please review the highlighted information.', 400, {
         destination: 'Origin and destination must be different.',
       }),
@@ -79,7 +105,7 @@ describe('TripForm', () => {
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
-    await user.click(screen.getByRole('button', { name: /validate trip/i }))
+    await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
     expect(
       await screen.findByText('Origin and destination must be different.'),
@@ -87,12 +113,12 @@ describe('TripForm', () => {
     expect(screen.getByLabelText('Destination')).toHaveAttribute('aria-invalid', 'true')
   })
 
-  it('keeps the loading state visible while validation is pending', async () => {
+  it('keeps the loading state visible while route planning is pending', async () => {
     const user = userEvent.setup()
-    let resolveRequest: ((value: { status: string; trip: TripRequest }) => void) | undefined
-    validateTrip.mockImplementation(
+    let resolveRequest: ((value: TripPlanResponse) => void) | undefined
+    planTrip.mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<TripPlanResponse>((resolve) => {
           resolveRequest = resolve
         }),
     )
@@ -103,12 +129,12 @@ describe('TripForm', () => {
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
-    await user.click(screen.getByRole('button', { name: /validate trip/i }))
+    await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
-    expect(await screen.findByRole('button', { name: /checking trip/i })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: /finding routes/i })).toBeDisabled()
     expect(screen.getByLabelText('Origin')).toBeDisabled()
     resolveRequest?.({
-      status: 'validated',
+      status: 'planned',
       trip: {
         origin: 'Chicago, IL',
         destination: 'Denver, CO',
@@ -116,13 +142,14 @@ describe('TripForm', () => {
         load_weight_lb: 32000,
         checkpoint_interval_miles: 25,
       },
+      routes: [makeRoute(0), makeRoute(1), makeRoute(2)],
     })
-    await waitFor(() => expect(screen.getByText('Trip details verified')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Three truck routes found')).toBeInTheDocument())
   })
 
   it('shows a recoverable message when the server cannot be reached', async () => {
     const user = userEvent.setup()
-    validateTrip.mockRejectedValue(
+    planTrip.mockRejectedValue(
       new ApiError('Unable to reach the server. Check your connection and try again.'),
     )
     renderForm()
@@ -132,7 +159,7 @@ describe('TripForm', () => {
     fireEvent.change(screen.getByLabelText('Departure date & time'), {
       target: { value: '2026-11-11T08:30' },
     })
-    await user.click(screen.getByRole('button', { name: /validate trip/i }))
+    await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Check your connection and try again.',
