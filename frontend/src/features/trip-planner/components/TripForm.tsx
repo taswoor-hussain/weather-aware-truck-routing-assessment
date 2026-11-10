@@ -88,7 +88,7 @@ export function TripForm() {
   return (
     <section
       aria-labelledby="trip-form-title"
-      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-35px_rgba(15,35,48,0.28)] sm:p-8"
+      className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-35px_rgba(15,35,48,0.28)] sm:p-8"
     >
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
         <div>

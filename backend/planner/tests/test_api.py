@@ -34,6 +34,16 @@ def planned_response(checkpoint_interval_miles: int = 25) -> dict[str, object]:
                         "rain_in_per_hour": 0,
                         "snow_in_per_hour": 0,
                     },
+                    "hourly_forecast": [
+                        {
+                            "hour": hour,
+                            "wind_mph": 10,
+                            "rain_in_per_hour": 0,
+                            "snow_in_per_hour": 0,
+                            "risk_level": "low",
+                        }
+                        for hour in range(49)
+                    ],
                     "risk_level": "low",
                     "risk_miles": 900,
                 }

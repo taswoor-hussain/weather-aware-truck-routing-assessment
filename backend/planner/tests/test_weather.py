@@ -8,7 +8,10 @@ from planner.services.checkpoints import Checkpoint
 from planner.services.errors import WeatherServiceError
 from planner.services.geocoding import Coordinates
 from planner.services.open_meteo import HourlyForecast, OpenMeteoClient
-from planner.services.weather import fetch_checkpoint_weather
+from planner.services.weather import (
+    fetch_checkpoint_weather,
+    fetch_checkpoint_weather_data,
+)
 
 
 def forecast() -> HourlyForecast:
@@ -18,6 +21,16 @@ def forecast() -> HourlyForecast:
         wind_mph=[10, 30, 50],
         rain_inches=[0.05, 0.5, 1.0],
         snow_inches=[0, 2.0, 3.0],
+    )
+
+
+def long_forecast() -> HourlyForecast:
+    first_hour = datetime(2026, 11, 11, 10, tzinfo=timezone.utc)
+    return HourlyForecast(
+        times=[first_hour + timedelta(hours=index) for index in range(60)],
+        wind_mph=[10 + index for index in range(60)],
+        rain_inches=[0.1] * 60,
+        snow_inches=[0] * 60,
     )
 
 
@@ -140,3 +153,37 @@ class CheckpointWeatherTests(SimpleTestCase):
             )
 
         self.assertEqual(raised.exception.code, "invalid_checkpoint_eta")
+
+    def test_forecast_timeline_contains_hourly_weather_and_load_adjusted_risk(self):
+        client = Mock(spec=OpenMeteoClient)
+        client.fetch_forecasts.return_value = [long_forecast()]
+
+        result = fetch_checkpoint_weather_data(
+            [checkpoint("2026-11-11T10:00:00+00:00")],
+            departure_at=datetime(2026, 11, 11, 10, tzinfo=timezone.utc),
+            load_weight_lb=32_000,
+            client=client,
+        )[0]
+
+        self.assertEqual(len(result["hourly_forecast"]), 49)
+        self.assertEqual(result["hourly_forecast"][0]["hour"], 0)
+        self.assertEqual(result["hourly_forecast"][0]["wind_mph"], 10)
+        self.assertEqual(result["hourly_forecast"][0]["risk_level"], "moderate")
+        self.assertEqual(result["hourly_forecast"][25]["wind_mph"], 35)
+        self.assertEqual(result["hourly_forecast"][25]["risk_level"], "high")
+        self.assertEqual(result["hourly_forecast"][-1]["hour"], 48)
+        client.fetch_forecasts.assert_called_once()
+
+    def test_forecast_timeline_fails_explicitly_when_the_full_horizon_is_missing(self):
+        client = Mock(spec=OpenMeteoClient)
+        client.fetch_forecasts.return_value = [forecast()]
+
+        with self.assertRaises(WeatherServiceError) as raised:
+            fetch_checkpoint_weather_data(
+                [checkpoint("2026-11-11T10:00:00+00:00")],
+                departure_at=datetime(2026, 11, 11, 10, tzinfo=timezone.utc),
+                load_weight_lb=32_000,
+                client=client,
+            )
+
+        self.assertEqual(raised.exception.code, "forecast_horizon_exceeded")

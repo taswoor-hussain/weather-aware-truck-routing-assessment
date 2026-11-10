@@ -14,7 +14,7 @@ export function TripPlannerPage() {
         <div className="mx-auto w-full max-w-7xl px-4 pb-20 sm:px-7 lg:px-10">
           <BrandHeader />
           <div className="grid items-center gap-10 pb-8 pt-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:pb-16 lg:pt-16">
-            <section className="max-w-xl text-white">
+            <section className="min-w-0 max-w-xl text-white">
               <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-teal-100">
                 <span className="size-1.5 rounded-full bg-amber-300" />
                 WEATHER-AWARE TRUCK ROUTING

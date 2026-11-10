@@ -1,12 +1,22 @@
+import { lazy, Suspense, useState } from 'react'
 import { StatusBanner } from '../../../shared/components/StatusBanner'
 import { RouteOptionCard } from './RouteOptionCard'
 import type { TripPlanResponse } from '../types'
+import { ForecastSlider } from './ForecastSlider'
+
+const TripMap = lazy(() =>
+  import('./TripMap').then((module) => ({ default: module.TripMap })),
+)
 
 interface TripResultProps {
   plan: TripPlanResponse
 }
 
 export function TripResult({ plan }: TripResultProps) {
+  const [selectedRouteId, setSelectedRouteId] = useState(
+    plan.recommendation.route_id ?? plan.routes[0].id,
+  )
+  const [forecastHour, setForecastHour] = useState(0)
   const hasSafeRoute = plan.recommendation.status === 'recommended'
 
   return (
@@ -31,14 +41,35 @@ export function TripResult({ plan }: TripResultProps) {
           {plan.trip.checkpoint_interval_miles} mi sampling
         </span>
       </div>
+      <div className="space-y-3">
+        <ForecastSlider
+          departureAt={plan.trip.departure_at}
+          hour={forecastHour}
+          onChange={setForecastHour}
+        />
+        <Suspense
+          fallback={
+            <div
+              className="grid h-[24rem] place-items-center rounded-2xl border border-slate-200 bg-slate-100 text-sm font-medium text-slate-600 sm:h-[32rem]"
+              role="status"
+            >
+              Loading route map…
+            </div>
+          }
+        >
+          <TripMap
+            routes={plan.routes}
+            selectedRouteId={selectedRouteId}
+            forecastHour={forecastHour}
+            onSelectRoute={setSelectedRouteId}
+          />
+        </Suspense>
+      </div>
       <div className="grid gap-3 md:grid-cols-3">
         {plan.routes.map((route, index) => (
           <RouteOptionCard key={route.id} route={route} index={index} />
         ))}
       </div>
-      <StatusBanner variant="info" title="Map and forecast heatmap are next">
-        Route geometry and checkpoint forecasts are ready for map visualization.
-      </StatusBanner>
     </section>
   )
 }

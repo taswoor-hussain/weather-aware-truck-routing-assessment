@@ -49,6 +49,13 @@ describe('planTrip', () => {
             rain_in_per_hour: 0,
             snow_in_per_hour: 0,
           },
+          hourly_forecast: Array.from({ length: 49 }, (_, hour) => ({
+            hour,
+            wind_mph: 20,
+            rain_in_per_hour: 0,
+            snow_in_per_hour: 0,
+            risk_level: 'low',
+          })),
           risk_level: 'low',
           risk_miles: 450,
         },
@@ -64,6 +71,13 @@ describe('planTrip', () => {
             rain_in_per_hour: 0,
             snow_in_per_hour: 0,
           },
+          hourly_forecast: Array.from({ length: 49 }, (_, hour) => ({
+            hour,
+            wind_mph: 20,
+            rain_in_per_hour: 0,
+            snow_in_per_hour: 0,
+            risk_level: 'low',
+          })),
           risk_level: 'low',
           risk_miles: 450,
         },
@@ -89,20 +103,20 @@ describe('planTrip', () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: responseData })
 
     await expect(planTrip(request)).resolves.toEqual(responseData)
-  })
 
-  it('rejects a successful response that does not match the API contract', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { status: 'ok' } })
+    const incompleteResponse = {
+      ...responseData,
+      routes: responseData.routes.map((item) => ({
+        ...item,
+        checkpoints: item.checkpoints.map((checkpoint) => ({
+          ...checkpoint,
+          hourly_forecast: checkpoint.hourly_forecast.slice(1),
+        })),
+      })),
+    }
+    vi.mocked(apiClient.post).mockResolvedValue({ data: incompleteResponse })
 
-    await expect(
-      planTrip({
-        origin: 'Chicago, IL',
-        destination: 'Denver, CO',
-        departure_at: '2026-11-11T14:30:00Z',
-        load_weight_lb: 32000,
-        checkpoint_interval_miles: 25,
-      }),
-    ).rejects.toMatchObject({
+    await expect(planTrip(request)).rejects.toMatchObject({
       name: 'ApiError',
       message: 'The server returned an invalid trip response.',
     })

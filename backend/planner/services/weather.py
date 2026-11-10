@@ -1,6 +1,6 @@
 import logging
 from bisect import bisect_left
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TypedDict
 
 from django.core.cache import cache
@@ -9,18 +9,22 @@ from .checkpoints import Checkpoint
 from .errors import WeatherServiceError
 from .geocoding import Coordinates
 from .open_meteo import HourlyForecast, OpenMeteoClient
-from .risk import WeatherObservation
+from .risk import (
+    WeatherForecastSample,
+    WeatherObservation,
+    classify_weather,
+)
 
 logger = logging.getLogger(__name__)
 
 FORECAST_CACHE_SECONDS = 30 * 60
 MAX_LOCATIONS_PER_REQUEST = 100
+FORECAST_HORIZON_HOURS = 48
 
 
-class CheckpointLocation(TypedDict):
-    latitude: float
-    longitude: float
-    eta: str
+class CheckpointWeatherData(TypedDict):
+    weather: WeatherObservation
+    hourly_forecast: list[WeatherForecastSample]
 
 
 def fetch_checkpoint_weather(
@@ -28,6 +32,56 @@ def fetch_checkpoint_weather(
     *,
     client: OpenMeteoClient | None = None,
 ) -> list[WeatherObservation]:
+    forecasts = _fetch_hourly_forecasts(checkpoints, client=client)
+    return [
+        _sample_forecast(forecast, _parse_eta(checkpoint["eta"]))
+        for checkpoint, forecast in zip(checkpoints, forecasts, strict=True)
+    ]
+
+
+def fetch_checkpoint_weather_data(
+    checkpoints: list[Checkpoint],
+    *,
+    departure_at: datetime,
+    load_weight_lb: int,
+    client: OpenMeteoClient | None = None,
+) -> list[CheckpointWeatherData]:
+    if departure_at.tzinfo is None or departure_at.utcoffset() is None:
+        raise ValueError("Departure time must include a timezone.")
+
+    forecasts = _fetch_hourly_forecasts(checkpoints, client=client)
+    results: list[CheckpointWeatherData] = []
+    for checkpoint, forecast in zip(checkpoints, forecasts, strict=True):
+        samples: list[WeatherForecastSample] = []
+        for hour in range(FORECAST_HORIZON_HOURS + 1):
+            weather = _sample_forecast(
+                forecast,
+                departure_at + timedelta(hours=hour),
+            )
+            samples.append(
+                {
+                    **weather,
+                    "hour": hour,
+                    "risk_level": classify_weather(
+                        weather,
+                        load_weight_lb=load_weight_lb,
+                    ),
+                }
+            )
+        results.append(
+            {
+                "weather": _sample_forecast(forecast, _parse_eta(checkpoint["eta"])),
+                "hourly_forecast": samples,
+            }
+        )
+    return results
+
+
+def _fetch_hourly_forecasts(
+    checkpoints: list[Checkpoint],
+    *,
+    client: OpenMeteoClient | None,
+) -> list[HourlyForecast]:
     if not checkpoints:
         return []
 
@@ -62,7 +116,7 @@ def fetch_checkpoint_weather(
                 timeout=FORECAST_CACHE_SECONDS,
             )
 
-    observations: list[WeatherObservation] = []
+    checkpoint_forecasts: list[HourlyForecast] = []
     for checkpoint in checkpoints:
         key = _location_key(checkpoint["latitude"], checkpoint["longitude"])
         forecast = forecasts.get(key)
@@ -73,9 +127,8 @@ def fetch_checkpoint_weather(
                 code="weather_data_unavailable",
                 status_code=502,
             )
-        observations.append(_sample_forecast(forecast, _parse_eta(checkpoint["eta"])))
-
-    return observations
+        checkpoint_forecasts.append(forecast)
+    return checkpoint_forecasts
 
 
 def _sample_forecast(forecast: HourlyForecast, eta: datetime) -> WeatherObservation:

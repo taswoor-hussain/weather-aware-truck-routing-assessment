@@ -51,6 +51,34 @@ const tripPlanResponseSchema = z.object({
                 rain_in_per_hour: z.number().nonnegative(),
                 snow_in_per_hour: z.number().nonnegative(),
               }),
+              hourly_forecast: z
+                .array(
+                  z.object({
+                    hour: z.number().int().min(0).max(48),
+                    wind_mph: z.number().nonnegative(),
+                    rain_in_per_hour: z.number().nonnegative(),
+                    snow_in_per_hour: z.number().nonnegative(),
+                    risk_level: z.enum([
+                      'low',
+                      'moderate',
+                      'high',
+                      'severe',
+                      'no_travel',
+                    ]),
+                  }),
+                )
+                .length(49)
+                .superRefine((samples, context) => {
+                  samples.forEach((sample, index) => {
+                    if (sample.hour !== index) {
+                      context.addIssue({
+                        code: 'custom',
+                        message: 'Forecast samples must be ordered from hour 0 to 48.',
+                        path: [index, 'hour'],
+                      })
+                    }
+                  })
+                }),
               risk_level: z.enum([
                 'low',
                 'moderate',

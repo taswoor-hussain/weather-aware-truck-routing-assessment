@@ -18,6 +18,11 @@ class WeatherObservation(TypedDict):
     snow_in_per_hour: float
 
 
+class WeatherForecastSample(WeatherObservation):
+    hour: int
+    risk_level: RiskLevel
+
+
 def classify_weather(
     weather: WeatherObservation,
     *,

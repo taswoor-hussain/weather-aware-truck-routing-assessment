@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { RouteOption, TripPlanResponse } from '../types'
 import { TripResult } from './TripResult'
+
+vi.mock('./TripMap', () => ({
+  TripMap: () => <div data-testid="trip-map" />,
+}))
 
 function routeOption(index: number): RouteOption {
   return {
@@ -32,6 +36,13 @@ function routeOption(index: number): RouteOption {
           rain_in_per_hour: 0,
           snow_in_per_hour: 0,
         },
+        hourly_forecast: Array.from({ length: 49 }, (_, hour) => ({
+          hour,
+          wind_mph: 55,
+          rain_in_per_hour: 0,
+          snow_in_per_hour: 0,
+          risk_level: 'no_travel' as const,
+        })),
         risk_level: 'no_travel',
         risk_miles: 900,
       },
@@ -70,6 +81,6 @@ describe('TripResult', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No safe route in forecast')
     expect(screen.getByRole('alert')).toHaveTextContent('Do not depart.')
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument()
-    expect(screen.getAllByText('No travel')).toHaveLength(3)
+    expect(screen.getAllByText('No Travel')).toHaveLength(3)
   })
 })

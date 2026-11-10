@@ -6,7 +6,7 @@ from .recommendation import CheckpointedRoute, RiskCheckpoint, rank_routes
 from .risk import classify_weather
 from .routing import RouteOption, calculate_routes
 from .tomtom_client import TomTomClient
-from .weather import fetch_checkpoint_weather
+from .weather import fetch_checkpoint_weather_data
 
 
 def plan_trip(
@@ -40,18 +40,24 @@ def plan_trip(
         for route_checkpoints in checkpoints_by_route
         for checkpoint in route_checkpoints
     ]
-    observations = fetch_checkpoint_weather(all_checkpoints)
+    weather_data = fetch_checkpoint_weather_data(
+        all_checkpoints,
+        departure_at=departure_at,
+        load_weight_lb=load_weight_lb,
+    )
 
     cursor = 0
     weather_routes: list[CheckpointedRoute] = []
     for route, route_checkpoints in zip(routes, checkpoints_by_route, strict=True):
         risk_checkpoints: list[RiskCheckpoint] = []
         for checkpoint in route_checkpoints:
-            weather = observations[cursor]
+            checkpoint_weather = weather_data[cursor]
             cursor += 1
+            weather = checkpoint_weather["weather"]
             risk_checkpoints.append(
                 {
                     **checkpoint,
+                    "hourly_forecast": checkpoint_weather["hourly_forecast"],
                     "weather": weather,
                     "risk_level": classify_weather(
                         weather,

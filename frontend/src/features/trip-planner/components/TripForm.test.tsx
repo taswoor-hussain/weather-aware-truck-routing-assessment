@@ -12,6 +12,10 @@ vi.mock('../api/tripApi', () => ({
   planTrip,
 }))
 
+vi.mock('./TripMap', () => ({
+  TripMap: () => <div data-testid="trip-map" />,
+}))
+
 function makeRoute(index: number): RouteOption {
   return {
     id: `route-${index + 1}`,
@@ -41,6 +45,13 @@ function makeRoute(index: number): RouteOption {
           rain_in_per_hour: 0,
           snow_in_per_hour: 0,
         },
+        hourly_forecast: Array.from({ length: 49 }, (_, hour) => ({
+          hour,
+          wind_mph: 20,
+          rain_in_per_hour: 0,
+          snow_in_per_hour: 0,
+          risk_level: 'low' as const,
+        })),
         risk_level: 'low',
         risk_miles: 450,
       },
@@ -56,6 +67,13 @@ function makeRoute(index: number): RouteOption {
           rain_in_per_hour: 0,
           snow_in_per_hour: 0,
         },
+        hourly_forecast: Array.from({ length: 49 }, (_, hour) => ({
+          hour,
+          wind_mph: 20,
+          rain_in_per_hour: 0,
+          snow_in_per_hour: 0,
+          risk_level: 'low' as const,
+        })),
         risk_level: 'low',
         risk_miles: 450,
       },

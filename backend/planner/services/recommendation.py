@@ -1,7 +1,7 @@
 from typing import Literal, TypedDict
 
 from .checkpoints import Checkpoint
-from .risk import RISK_SCORES, RiskLevel, WeatherObservation
+from .risk import RISK_SCORES, RiskLevel, WeatherForecastSample, WeatherObservation
 from .routing import RouteOption
 
 
@@ -9,6 +9,7 @@ class RiskCheckpoint(Checkpoint):
     weather: WeatherObservation
     risk_level: RiskLevel
     risk_miles: float
+    hourly_forecast: list[WeatherForecastSample]
 
 
 class RouteRiskSummary(TypedDict):

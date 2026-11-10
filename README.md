@@ -77,7 +77,9 @@ three distinct truck routes from TomTom. It samples each route at the selected
 checkpoint interval, estimates each checkpoint's arrival time from route
 distance and travel duration, and requests hourly forecasts from Open-Meteo.
 The response includes the ranked routes, checkpoint weather and risk, route
-risk summaries, and a recommendation status.
+risk summaries, and a recommendation status. Each checkpoint also includes
+hourly risk/weather snapshots from departure through +48 hours for the map
+forecast slider.
 
 ```json
 {
@@ -117,7 +119,10 @@ between hourly forecast timestamps for the estimated arrival time. Hourly rain
 and snowfall amounts are assigned from the forecast hour ending at or after
 that ETA. Provider units are converted to mph and inches before scoring.
 Planning returns an explicit error if a route ETA falls outside the available
-forecast horizon.
+forecast horizon or the forecast cannot cover the slider's full 48-hour window.
+The map uses the same checkpoint locations to render 49 hourly snapshots
+(departure hour 0 through hour 48); its selected hour is a corridor-wide time,
+while route-card risk summaries continue to use each truck checkpoint's ETA.
 
 Each checkpoint receives the highest applicable risk across wind, rain, and
 snow. The thresholds follow the assessment:
@@ -148,10 +153,13 @@ Travel exposure.
   should use a shared cache (such as Redis) before relying on global rate limits.
 - TomTom routing is called with bounded connect/read timeouts. Automated tests
   mock both provider transports and do not require live API keys.
+- Map tiles are provided by OpenStreetMap and require an internet connection;
+  attribution is shown in the map.
 
 ## Development status
 
 This repository is being built in small, reviewable stages. Trip validation,
 TomTom truck route options, checkpoint weather, risk scoring, route
-recommendation, and a checkpoint/risk comparison UI are in place. Map
-visualization and the 0–48-hour corridor heatmap are still to come.
+recommendation, route comparison, the interactive route map, and the 0–48-hour
+checkpoint risk heatmap are in place. Route geometry, checkpoint ETAs, weather,
+and risk summaries are available in the results UI.

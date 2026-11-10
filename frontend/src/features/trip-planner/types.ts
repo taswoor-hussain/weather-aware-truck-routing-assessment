@@ -25,6 +25,11 @@ export interface WeatherObservation {
   snow_in_per_hour: number
 }
 
+export interface WeatherForecastSample extends WeatherObservation {
+  hour: number
+  risk_level: RiskLevel
+}
+
 export interface RouteCheckpoint {
   id: string
   distance_miles: number
@@ -35,6 +40,7 @@ export interface RouteCheckpoint {
   weather: WeatherObservation
   risk_level: RiskLevel
   risk_miles: number
+  hourly_forecast: WeatherForecastSample[]
 }
 
 export interface RouteRiskSummary {

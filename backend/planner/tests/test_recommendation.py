@@ -36,6 +36,16 @@ def route_with_risk(
                     "rain_in_per_hour": 0,
                     "snow_in_per_hour": 0,
                 },
+                "hourly_forecast": [
+                    {
+                        "hour": hour,
+                        "wind_mph": 20,
+                        "rain_in_per_hour": 0,
+                        "snow_in_per_hour": 0,
+                        "risk_level": risk_level,
+                    }
+                    for hour in range(49)
+                ],
                 "risk_level": risk_level,
                 "risk_miles": risk_miles,
             }
