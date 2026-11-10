@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ArrowRight, CloudSun, LoaderCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { FormField } from '../../../shared/components/FormField'
@@ -10,7 +11,7 @@ import { usePlanTrip } from '../hooks/usePlanTrip'
 import { PlaceInput } from './PlaceInput'
 
 const inputClassName =
-  'min-h-12 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-700 focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10'
+  'min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 hover:bg-white focus:border-teal-700 focus:bg-white focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10'
 
 interface TripFormProps {
   onPlan: (plan: TripPlanResponse | null) => void
@@ -108,25 +109,23 @@ export function TripForm({ onPlan }: TripFormProps) {
   return (
     <section
       aria-labelledby="trip-form-title"
-      className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-35px_rgba(15,35,48,0.28)] sm:p-8"
+      className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5"
     >
-      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-800">
-            Your trip
-          </p>
-          <h2 id="trip-form-title" className="mt-1.5 text-xl font-bold tracking-tight text-slate-950">
+          <h2 id="trip-form-title" className="text-lg font-bold tracking-tight text-slate-950">
             Plan a safer trip
           </h2>
+          <p className="mt-1 text-xs text-slate-500">Compare routes by weather risk and drive time.</p>
         </div>
-        <span className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-800">
-          <span className="size-2 rounded-full bg-emerald-500" />
-          Live forecast
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-[10px] font-bold text-teal-800">
+          <CloudSun aria-hidden="true" className="size-3.5" />
+          Weather + ETA
         </span>
       </div>
 
-      <form className="mt-5 min-w-0 space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        <div className="space-y-4">
+      <form className="mt-4 min-w-0 space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <div className="space-y-3.5">
           <PlaceInput
             id="origin"
             label="Origin"
@@ -182,7 +181,7 @@ export function TripForm({ onPlan }: TripFormProps) {
           />
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid min-w-0 grid-cols-1 gap-3.5">
           <FormField
             id="departureLocal"
             label="Departure date & time"
@@ -270,29 +269,26 @@ export function TripForm({ onPlan }: TripFormProps) {
           </StatusBanner>
         )}
 
-        <div className="border-t border-slate-100 pt-4">
+        <div className="border-t border-slate-100 pt-3">
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:bg-teal-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-wait disabled:opacity-70"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-md shadow-slate-950/10 transition hover:bg-teal-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-wait disabled:opacity-70"
           >
             {mutation.isPending ? (
               <>
-                <span
-                  aria-hidden="true"
-                  className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                />
+                <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
                 Finding routes…
               </>
             ) : (
               <>
                 Find truck routes
-                <span aria-hidden="true">→</span>
+                <ArrowRight aria-hidden="true" className="size-4" />
               </>
             )}
           </button>
-          <p className="mt-3 text-center text-xs leading-5 text-slate-500">
-            Weather and ETA are compared across three truck routes.
+          <p className="mt-2 text-center text-[11px] leading-4 text-slate-500">
+            Compare weather and ETA across three routes.
           </p>
         </div>
       </form>

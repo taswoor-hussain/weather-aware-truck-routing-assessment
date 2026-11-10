@@ -130,8 +130,11 @@ The map uses the same checkpoint locations to render 49 hourly snapshots
 while route-card risk summaries continue to use each truck checkpoint's ETA.
 The map fills the viewport behind a hideable trip panel and supports mouse-wheel
 or trackpad zoom, dragging, double-click zoom, touch pinch, and keyboard
-navigation. Playing the forecast animates a light along the selected route's
-actual road geometry while checkpoint risk colors update with the forecast hour.
+navigation. Zoom-out is constrained to the viewport size and the basemap does
+not repeat horizontally, so the map remains continuous without exposing blank
+areas around the world tiles. Playing the forecast animates a light along the
+selected route's actual road geometry while checkpoint risk colors update with
+the forecast hour.
 
 Each checkpoint receives the highest applicable risk across wind, rain, and
 snow. The thresholds follow the assessment:

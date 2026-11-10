@@ -10,6 +10,7 @@ interface TripMapPanelProps {
   plan: TripPlanResponse | null
   selectedRouteId: string | null
   onSelectRoute: (routeId: string) => void
+  isTripPanelOpen: boolean
   forecastHour: number
   onForecastHourChange: (hour: number) => void
   isPlaying: boolean
@@ -20,6 +21,7 @@ export function TripMapPanel({
   plan,
   selectedRouteId,
   onSelectRoute,
+  isTripPanelOpen,
   forecastHour,
   onForecastHourChange,
   isPlaying,
@@ -40,15 +42,16 @@ export function TripMapPanel({
         <TripMap
           routes={plan?.routes ?? []}
           selectedRouteId={selectedRouteId}
+          isTripPanelOpen={isTripPanelOpen}
           forecastHour={forecastHour}
           isPlaying={isPlaying}
           onSelectRoute={onSelectRoute}
         />
       </Suspense>
 
-      <div className="pointer-events-none absolute right-3 top-[5.25rem] z-[1050] rounded-xl border border-white/80 bg-white/90 px-3 py-2 text-[11px] font-medium text-slate-600 shadow-md backdrop-blur sm:right-16 sm:top-4 sm:text-xs">
-        <span className="hidden sm:inline">Scroll, pinch, or double-click to zoom · drag to pan</span>
-        <span className="sm:hidden">Pinch to zoom · drag to pan</span>
+      <div className="pointer-events-none absolute right-16 top-3 z-[1050] max-w-[calc(100vw-6rem)] rounded-xl border border-white/80 bg-white/90 px-3 py-2 text-[11px] font-medium text-slate-600 shadow-md backdrop-blur sm:right-16 sm:top-4 sm:text-xs">
+        <span className="hidden sm:inline">Scroll or pinch to zoom · drag to move</span>
+        <span className="sm:hidden">Pinch to zoom · drag to move</span>
       </div>
 
       {plan && (

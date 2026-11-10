@@ -1,6 +1,7 @@
 import { divIcon, latLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Fragment, useEffect, useMemo } from 'react'
+import { Minus, Plus } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   CircleMarker,
   MapContainer,
@@ -9,7 +10,6 @@ import {
   Popup,
   TileLayer,
   Tooltip,
-  ZoomControl,
   useMap,
 } from 'react-leaflet'
 import { formatArrival } from '../utils/formatRoute'
@@ -19,14 +19,22 @@ import type { RouteOption } from '../types'
 interface TripMapProps {
   routes: RouteOption[]
   selectedRouteId: string | null
+  isTripPanelOpen: boolean
   forecastHour: number
   isPlaying: boolean
   onSelectRoute: (routeId: string) => void
 }
 
 const routeColors = ['#0f766e', '#2563eb', '#9333ea']
+const MAP_TILE_SIZE = 256
+const MAP_MAX_ZOOM = 19
+const ROUTE_FIT_MAX_ZOOM = 8
+const WORLD_BOUNDS = latLngBounds([-85.051129, -180], [85.051129, 180])
 
-function FitRouteBounds({ routes }: Pick<TripMapProps, 'routes'>) {
+function FitRouteBounds({
+  routes,
+  isTripPanelOpen,
+}: Pick<TripMapProps, 'routes' | 'isTripPanelOpen'>) {
   const map = useMap()
 
   useEffect(() => {
@@ -44,13 +52,13 @@ function FitRouteBounds({ routes }: Pick<TripMapProps, 'routes'>) {
     const fitRoutes = () => {
       const { x: width } = map.getSize()
       const isSmallScreen = width < 768
-      const leftPadding = isSmallScreen
+      const leftPadding = isSmallScreen || !isTripPanelOpen
         ? 24
         : Math.min(460, Math.max(420, Math.round(width * 0.34)))
       map.fitBounds(bounds, {
         paddingTopLeft: [leftPadding, 84],
         paddingBottomRight: [24, isSmallScreen ? 220 : 170],
-        maxZoom: 8,
+        maxZoom: ROUTE_FIT_MAX_ZOOM,
       })
     }
 
@@ -59,9 +67,76 @@ function FitRouteBounds({ routes }: Pick<TripMapProps, 'routes'>) {
     return () => {
       map.off('resize', fitRoutes)
     }
-  }, [map, routes])
+  }, [isTripPanelOpen, map, routes])
 
   return null
+}
+
+function MapZoomBounds() {
+  const map = useMap()
+
+  useEffect(() => {
+    const constrainZoomToViewport = () => {
+      const size = map.getSize()
+      if (size.x <= 0 || size.y <= 0) return
+
+      const minZoom = Math.min(
+        MAP_MAX_ZOOM,
+        Math.ceil(Math.log2(Math.max(size.x, size.y) / MAP_TILE_SIZE)),
+      )
+      map.setMinZoom(minZoom)
+      if (map.getZoom() < minZoom) map.setZoom(minZoom, { animate: false })
+    }
+
+    constrainZoomToViewport()
+    map.on('resize', constrainZoomToViewport)
+    return () => {
+      map.off('resize', constrainZoomToViewport)
+    }
+  }, [map])
+
+  return null
+}
+
+function MapZoomControls() {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+  const minZoom = map.getMinZoom()
+  const maxZoom = map.getMaxZoom()
+
+  useEffect(() => {
+    const updateZoom = () => setZoom(map.getZoom())
+    map.on('zoomend', updateZoom)
+    return () => {
+      map.off('zoomend', updateZoom)
+    }
+  }, [map])
+
+  return (
+    <div className="map-zoom-controls absolute right-3 top-3 z-[1000] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:right-4 sm:top-4">
+      <button
+        type="button"
+        aria-label="Zoom in"
+        title="Zoom in"
+        disabled={zoom >= maxZoom}
+        onClick={() => map.zoomIn()}
+        className="grid size-10 place-items-center text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:text-slate-300"
+      >
+        <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
+      </button>
+      <div className="h-px bg-slate-200" />
+      <button
+        type="button"
+        aria-label="Zoom out"
+        title="Zoom out"
+        disabled={zoom <= minZoom}
+        onClick={() => map.zoomOut()}
+        className="grid size-10 place-items-center text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:text-slate-300"
+      >
+        <Minus aria-hidden="true" className="size-5" strokeWidth={2} />
+      </button>
+    </div>
+  )
 }
 
 const startIcon = divIcon({
@@ -88,6 +163,7 @@ function routePositions(route: RouteOption): [number, number][] {
 export function TripMap({
   routes,
   selectedRouteId,
+  isTripPanelOpen,
   forecastHour,
   isPlaying,
   onSelectRoute,
@@ -104,7 +180,11 @@ export function TripMap({
         <MapContainer
           center={firstPosition}
           zoom={4}
-          className="h-full w-full bg-slate-100"
+          minZoom={2}
+          maxZoom={MAP_MAX_ZOOM}
+          maxBounds={WORLD_BOUNDS}
+          maxBoundsViscosity={1}
+          className="h-full w-full bg-[#e8eef0]"
           aria-label="Map showing all route options and forecast risk checkpoints"
           scrollWheelZoom
           touchZoom
@@ -112,11 +192,16 @@ export function TripMap({
           keyboard
           zoomControl={false}
         >
-          <FitRouteBounds routes={routes} />
-          <ZoomControl position="topright" />
+          <MapZoomBounds />
+          <FitRouteBounds routes={routes} isTripPanelOpen={isTripPanelOpen} />
+          <MapZoomControls />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            noWrap
+            bounds={WORLD_BOUNDS}
+            updateWhenZooming={false}
+            keepBuffer={2}
           />
           {routes.map((route, index) => {
             const isSelected = route.id === selectedRoute?.id

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Check, Search } from 'lucide-react'
 import { toApiError } from '../../../shared/api/ApiError'
 import { searchPlaces } from '../api/tripApi'
 import type { PlaceSuggestion } from '../types'
@@ -113,7 +114,7 @@ export function PlaceInput({
 
   return (
     <div className="relative">
-      <label htmlFor={id} className="mb-2 block text-sm font-semibold text-slate-800">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold tracking-wide text-slate-700">
         {label}
       </label>
       <div className="relative">
@@ -133,7 +134,7 @@ export function PlaceInput({
           disabled={disabled}
           value={value}
           placeholder={placeholder}
-          className="min-h-12 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-4 pr-11 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-700 focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10"
+          className="min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 hover:bg-white focus:border-teal-700 focus:bg-white focus:ring-4 focus:ring-teal-700/10 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/10"
           onFocus={() => setIsOpen(true)}
           onChange={(event) => {
             onChange(event.currentTarget.value)
@@ -153,16 +154,13 @@ export function PlaceInput({
           {isLoading ? (
             <span className="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-700" />
           ) : selected ? (
-            <span className="font-bold text-teal-700">✓</span>
+            <Check aria-hidden="true" className="size-4 text-teal-700" strokeWidth={2.5} />
           ) : (
-            <svg viewBox="0 0 24 24" fill="none" className="size-4">
-              <circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="1.8" />
-              <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
+            <Search aria-hidden="true" className="size-4" />
           )}
         </span>
       </div>
-      <p id={hintId} className="mt-1.5 text-xs leading-5 text-slate-500">
+      <p id={hintId} className="mt-1 text-[11px] leading-4 text-slate-500">
         {selected ? 'Verified location' : 'Type at least 3 characters to search'}
       </p>
       {error && (

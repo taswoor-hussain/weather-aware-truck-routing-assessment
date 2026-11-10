@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Pause, Play } from 'lucide-react'
 import { RISK_PRESENTATION } from '../utils/riskPresentation'
 
 const MAX_FORECAST_HOUR = 48
@@ -62,11 +63,15 @@ export function ForecastSlider({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white transition hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+            className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
             onClick={togglePlayback}
             aria-label={isPlaying ? 'Pause forecast playback' : 'Play forecast playback'}
           >
-            {isPlaying ? 'Ⅱ' : '▶'}
+            {isPlaying ? (
+              <Pause aria-hidden="true" className="size-4" fill="currentColor" />
+            ) : (
+              <Play aria-hidden="true" className="size-4" fill="currentColor" />
+            )}
           </button>
           <div>
             <h4 id="forecast-slider-title" className="text-sm font-bold text-slate-950">
