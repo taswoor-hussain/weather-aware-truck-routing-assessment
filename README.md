@@ -30,6 +30,26 @@ npm run dev
 The API health check is available at `http://127.0.0.1:8000/api/health/`.
 Vite proxies `/api` requests to Django during local development.
 
+## Trip request API
+
+`POST /api/plan/` validates the trip request and returns `200 OK`. Route
+generation and weather analysis will be added in later stages.
+
+```json
+{
+  "origin": "Chicago, IL",
+  "destination": "Denver, CO",
+  "departure_at": "2026-11-11T08:30:00-06:00",
+  "load_weight_lb": 32000,
+  "checkpoint_interval_miles": 25
+}
+```
+
+`checkpoint_interval_miles` is optional and defaults to `25`; supported values
+are `10`, `25`, and `50`. `departure_at` must include a timezone offset.
+Invalid requests return field-specific `400 Bad Request` errors.
+
 ## Development status
 
-This repository is being built in small, reviewable stages. The initial setup is in place; application features will be added in subsequent commits.
+This repository is being built in small, reviewable stages. The current backend
+validates trip requests; routing and weather features are still to come.
