@@ -18,6 +18,11 @@ const tripPlanResponseSchema = z.object({
       CHECKPOINT_INTERVALS.map((value) => z.literal(value)),
     ),
   }),
+  recommendation: z.object({
+    route_id: z.string().min(1).nullable(),
+    status: z.enum(['recommended', 'no_safe_route']),
+    message: z.string().min(1),
+  }),
   routes: z
     .array(
       z.object({
@@ -32,6 +37,38 @@ const tripPlanResponseSchema = z.object({
           type: z.literal('LineString'),
           coordinates: z.array(z.tuple([z.number(), z.number()])).min(2),
         }),
+        checkpoints: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              distance_miles: z.number().nonnegative(),
+              latitude: z.number().min(-90).max(90),
+              longitude: z.number().min(-180).max(180),
+              eta: z.string().datetime({ offset: true }),
+              segment_miles: z.number().nonnegative(),
+              weather: z.object({
+                wind_mph: z.number().nonnegative(),
+                rain_in_per_hour: z.number().nonnegative(),
+                snow_in_per_hour: z.number().nonnegative(),
+              }),
+              risk_level: z.enum([
+                'low',
+                'moderate',
+                'high',
+                'severe',
+                'no_travel',
+              ]),
+              risk_miles: z.number().nonnegative(),
+            }),
+          )
+          .min(2),
+        risk_summary: z.object({
+          no_travel_miles: z.number().nonnegative(),
+          severe_miles: z.number().nonnegative(),
+          high_miles: z.number().nonnegative(),
+          average_risk: z.number().min(0).max(4),
+        }),
+        is_recommended: z.boolean(),
       }),
     )
     .length(3),

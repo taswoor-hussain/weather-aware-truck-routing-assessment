@@ -21,6 +21,30 @@ def planned_response(checkpoint_interval_miles: int = 25) -> dict[str, object]:
                 "type": "LineString",
                 "coordinates": [[-87.0, 41.0], [-104.0, 39.0 + index]],
             },
+            "checkpoints": [
+                {
+                    "id": f"route-{index + 1}-checkpoint-1",
+                    "distance_miles": 0,
+                    "latitude": 41,
+                    "longitude": -87,
+                    "eta": "2026-11-11T14:30:00+00:00",
+                    "segment_miles": 900,
+                    "weather": {
+                        "wind_mph": 10,
+                        "rain_in_per_hour": 0,
+                        "snow_in_per_hour": 0,
+                    },
+                    "risk_level": "low",
+                    "risk_miles": 900,
+                }
+            ],
+            "risk_summary": {
+                "no_travel_miles": 0,
+                "severe_miles": 0,
+                "high_miles": 0,
+                "average_risk": 0,
+            },
+            "is_recommended": index == 0,
         }
         for index in range(3)
     ]
@@ -34,6 +58,11 @@ def planned_response(checkpoint_interval_miles: int = 25) -> dict[str, object]:
             "checkpoint_interval_miles": checkpoint_interval_miles,
         },
         "routes": routes,
+        "recommendation": {
+            "route_id": "route-1",
+            "status": "recommended",
+            "message": "This route has the lowest weather risk based on the available forecast.",
+        },
     }
 
 
@@ -69,6 +98,8 @@ class TripRequestApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "planned")
         self.assertEqual(response.json()["trip"]["checkpoint_interval_miles"], 25)
+        self.assertEqual(response.json()["recommendation"]["route_id"], "route-1")
+        self.assertEqual(len(response.json()["routes"][0]["checkpoints"]), 1)
         mock_plan_trip.assert_called_once()
         self.assertEqual(mock_plan_trip.call_args.kwargs["origin"], "Chicago, IL")
         self.assertEqual(mock_plan_trip.call_args.kwargs["load_weight_lb"], 32000)

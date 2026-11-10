@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
-from .services.errors import RoutingServiceError
+from .services.errors import PlanningServiceError
 from .services.planner import plan_trip
 from .serializers import TripRequestSerializer
 
@@ -29,7 +29,7 @@ class PlanTripView(APIView):
                 **serializer.validated_data,
                 api_key=settings.TOMTOM_API_KEY,
             )
-        except RoutingServiceError as error:
+        except PlanningServiceError as error:
             return Response(
                 {"code": error.code, "detail": error.message},
                 status=error.status_code,

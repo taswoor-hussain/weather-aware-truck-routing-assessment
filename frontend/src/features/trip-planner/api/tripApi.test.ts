@@ -36,11 +36,55 @@ describe('planTrip', () => {
           [-104.9, 39.7 + offset * 0.01] as [number, number],
         ],
       },
+      checkpoints: [
+        {
+          id: `${id}-checkpoint-1`,
+          distance_miles: 0,
+          latitude: 41.8,
+          longitude: -87.6,
+          eta: request.departure_at,
+          segment_miles: 450,
+          weather: {
+            wind_mph: 20,
+            rain_in_per_hour: 0,
+            snow_in_per_hour: 0,
+          },
+          risk_level: 'low',
+          risk_miles: 450,
+        },
+        {
+          id: `${id}-checkpoint-2`,
+          distance_miles: 900 + offset,
+          latitude: 39.7 + offset * 0.01,
+          longitude: -104.9,
+          eta: '2026-11-12T00:30:00Z',
+          segment_miles: 450,
+          weather: {
+            wind_mph: 20,
+            rain_in_per_hour: 0,
+            snow_in_per_hour: 0,
+          },
+          risk_level: 'low',
+          risk_miles: 450,
+        },
+      ],
+      risk_summary: {
+        no_travel_miles: 0,
+        severe_miles: 0,
+        high_miles: 0,
+        average_risk: 0,
+      },
+      is_recommended: id === 'route-1',
     })
     const responseData = {
       status: 'planned',
       trip: request,
       routes: [route('route-1', 0), route('route-2', 1), route('route-3', 2)],
+      recommendation: {
+        route_id: 'route-1',
+        status: 'recommended',
+        message: 'Lowest risk route.',
+      },
     }
     vi.mocked(apiClient.post).mockResolvedValue({ data: responseData })
 

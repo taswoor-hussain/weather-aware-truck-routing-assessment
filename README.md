@@ -73,9 +73,11 @@ pending/success/error mutation lifecycle. Tailwind CSS provides the UI styling.
 ## Trip request API
 
 `POST /api/plan/` validates the trip request, geocodes both places, and requests
-three distinct truck routes from TomTom. A successful response includes route
-summaries and GeoJSON LineString coordinates. Weather analysis and route
-recommendation are later stages.
+three distinct truck routes from TomTom. It samples each route at the selected
+checkpoint interval, estimates each checkpoint's arrival time from route
+distance and travel duration, and requests hourly forecasts from Open-Meteo.
+The response includes the ranked routes, checkpoint weather and risk, route
+risk summaries, and a recommendation status.
 
 ```json
 {
@@ -96,6 +98,7 @@ to the client.
 
 TomTom configuration belongs in the ignored `backend/.env` file. See the
 [TomTom Calculate Route documentation](https://docs.tomtom.com/routing-api/documentation/tomtom-maps/v1/calculate-route).
+Weather forecasts use the public Open-Meteo forecast API and require no API key.
 
 ```env
 TOMTOM_API_KEY=your-key
@@ -105,6 +108,33 @@ The key stays on the server and is never added to frontend assets or responses.
 Trip planning uses TomTom's truck travel mode and departure time. The brief
 collects cargo weight but not tractor/trailer gross weight or dimensions, so
 those vehicle restriction inputs are not guessed or sent to the routing API.
+
+## Weather and risk model
+
+Open-Meteo forecasts are fetched in batches of up to 100 checkpoint locations
+and cached by rounded coordinates for 30 minutes. Wind speed is interpolated
+between hourly forecast timestamps for the estimated arrival time. Hourly rain
+and snowfall amounts are assigned from the forecast hour ending at or after
+that ETA. Provider units are converted to mph and inches before scoring.
+Planning returns an explicit error if a route ETA falls outside the available
+forecast horizon.
+
+Each checkpoint receives the highest applicable risk across wind, rain, and
+snow. The thresholds follow the assessment:
+
+| Risk | Wind | Rain | Snow |
+| --- | --- | --- | --- |
+| Low | <25 mph | <0.10 in/hr | <0.5 in/hr |
+| Moderate | 25–<35 mph | 0.10–<0.25 in/hr | 0.5–<1.0 in/hr |
+| High | 35–<45 mph | 0.25–<0.50 in/hr | 1.0–<2.0 in/hr |
+| Severe | 45–<55 mph | 0.50–1.00 in/hr | 2.0–3.0 in/hr |
+| No Travel | ≥55 mph | >1.00 in/hr | >3.0 in/hr |
+
+Load adjustments: wind at 45–<55 mph is No Travel above 30,000 lb; wind at
+35–<45 mph is Severe above 40,000 lb. The recommendation ranks routes by
+No Travel exposure, Severe miles, High miles, mileage-weighted average risk,
+then travel time. A route is not recommended when every option has any No
+Travel exposure.
 
 ## Backend safety defaults
 
@@ -117,10 +147,11 @@ those vehicle restriction inputs are not guessed or sent to the routing API.
 - The in-memory throttle cache is per process. A multi-instance deployment
   should use a shared cache (such as Redis) before relying on global rate limits.
 - TomTom routing is called with bounded connect/read timeouts. Automated tests
-  mock the provider transport and do not require a live API key.
+  mock both provider transports and do not require live API keys.
 
 ## Development status
 
 This repository is being built in small, reviewable stages. Trip validation,
-TomTom truck route options, and route summaries are in place; checkpoint weather,
-risk scoring, route recommendation, and map rendering are still to come.
+TomTom truck route options, checkpoint weather, risk scoring, route
+recommendation, and a checkpoint/risk comparison UI are in place. Map
+visualization and the 0–48-hour corridor heatmap are still to come.

@@ -28,6 +28,45 @@ function makeRoute(index: number): RouteOption {
         [-104.9, 39.7 + index * 0.1],
       ],
     },
+    checkpoints: [
+      {
+        id: `route-${index + 1}-checkpoint-1`,
+        distance_miles: 0,
+        latitude: 41.8,
+        longitude: -87.6,
+        eta: '2026-11-11T14:30:00Z',
+        segment_miles: 900,
+        weather: {
+          wind_mph: 20,
+          rain_in_per_hour: 0,
+          snow_in_per_hour: 0,
+        },
+        risk_level: 'low',
+        risk_miles: 450,
+      },
+      {
+        id: `route-${index + 1}-checkpoint-2`,
+        distance_miles: 900 + index * 10,
+        latitude: 39.7 + index * 0.1,
+        longitude: -104.9,
+        eta: '2026-11-12T00:30:00Z',
+        segment_miles: 450,
+        weather: {
+          wind_mph: 20,
+          rain_in_per_hour: 0,
+          snow_in_per_hour: 0,
+        },
+        risk_level: 'low',
+        risk_miles: 450,
+      },
+    ],
+    risk_summary: {
+      no_travel_miles: 0,
+      severe_miles: 0,
+      high_miles: 0,
+      average_risk: 0,
+    },
+    is_recommended: index === 0,
   }
 }
 
@@ -36,6 +75,11 @@ function makePlan(request: TripRequest): TripPlanResponse {
     status: 'planned',
     trip: request,
     routes: [makeRoute(0), makeRoute(1), makeRoute(2)],
+    recommendation: {
+      route_id: 'route-1',
+      status: 'recommended',
+      message: 'This route has the lowest weather risk.',
+    },
   }
 }
 
@@ -78,9 +122,10 @@ describe('TripForm', () => {
     })
     await user.click(screen.getByRole('button', { name: /find truck routes/i }))
 
-    expect(await screen.findByText('Three truck routes found')).toBeInTheDocument()
-    expect(screen.getByText('Compare route options')).toBeInTheDocument()
+    expect(await screen.findByText('Safest available route selected')).toBeInTheDocument()
+    expect(screen.getByText('Weather-ranked route options')).toBeInTheDocument()
     expect(screen.getByText('900 mi')).toBeInTheDocument()
+    expect(screen.getAllByText('Checkpoint weather (2)')).toHaveLength(3)
     expect(planTrip.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         origin: 'Chicago, IL',
@@ -143,8 +188,15 @@ describe('TripForm', () => {
         checkpoint_interval_miles: 25,
       },
       routes: [makeRoute(0), makeRoute(1), makeRoute(2)],
+      recommendation: {
+        route_id: 'route-1',
+        status: 'recommended',
+        message: 'This route has the lowest weather risk.',
+      },
     })
-    await waitFor(() => expect(screen.getByText('Three truck routes found')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Safest available route selected')).toBeInTheDocument(),
+    )
   })
 
   it('shows a recoverable message when the server cannot be reached', async () => {
